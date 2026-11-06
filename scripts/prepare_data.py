@@ -55,6 +55,9 @@ def main():
         "label_distribution": {k: {t: g[c["label"]].value_counts().to_dict()
                                    for t, g in d.groupby(c["criterion_type"])} for k, d in clean.items()},
         "forbidden_columns_removed": forb,
+        "known_skipped_rows": [
+            {**k, "split": next(n for n, d in clean.items() if (d[c["id"]] == k["annotation_id"]).any())}
+            for k in cfg.get("known_skipped_rows", [])],
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     mp = resolve(cfg["paths"]["manifest"])

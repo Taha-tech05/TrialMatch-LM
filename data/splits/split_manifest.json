@@ -123,5 +123,12 @@
     "gpt4_sentences",
     "gpt4_eligibility"
   ],
-  "created_utc": "2026-11-06T09:14:01+00:00"
+  "known_skipped_rows": [
+    {
+      "annotation_id": 883,
+      "reason": "null criterion_text",
+      "split": "train"
+    }
+  ],
+  "created_utc": "2026-11-06T10:24:11+00:00"
 }

@@ -38,3 +38,15 @@ forbidden_columns:
 # Columns whose purpose is unclear; flagged for human review (see inspection report).
 review_columns:
   - training
+
+# Allowed labels per criterion type (exact strings as in the data). Verified against
+# the data by trialmatch.model.schema.verify_label_sets() and tests; no collapsing.
+labels:
+  inclusion: [included, not included, not enough information, not applicable]
+  exclusion: [excluded, not excluded, not enough information, not applicable]
+
+# Rows kept in their split (counts stay 1,015 / 37-8-8) but excluded from training
+# and metric computation.
+known_skipped_rows:
+  - annotation_id: 883
+    reason: null criterion_text

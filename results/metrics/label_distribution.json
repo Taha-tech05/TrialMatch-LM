@@ -1,0 +1,186 @@
+{
+  "overall": {
+    "rows": 1015,
+    "exclusion": {
+      "rows": 659,
+      "sum_check": true,
+      "labels": {
+        "not excluded": {
+          "count": 484,
+          "pct": 73.44
+        },
+        "not enough information": {
+          "count": 119,
+          "pct": 18.06
+        },
+        "not applicable": {
+          "count": 46,
+          "pct": 6.98
+        },
+        "excluded": {
+          "count": 10,
+          "pct": 1.52
+        }
+      }
+    },
+    "inclusion": {
+      "rows": 356,
+      "sum_check": true,
+      "labels": {
+        "not enough information": {
+          "count": 174,
+          "pct": 48.88
+        },
+        "included": {
+          "count": 150,
+          "pct": 42.13
+        },
+        "not included": {
+          "count": 23,
+          "pct": 6.46
+        },
+        "not applicable": {
+          "count": 9,
+          "pct": 2.53
+        }
+      }
+    }
+  },
+  "train": {
+    "rows": 603,
+    "exclusion": {
+      "rows": 388,
+      "sum_check": true,
+      "labels": {
+        "not excluded": {
+          "count": 292,
+          "pct": 75.26
+        },
+        "not enough information": {
+          "count": 65,
+          "pct": 16.75
+        },
+        "not applicable": {
+          "count": 23,
+          "pct": 5.93
+        },
+        "excluded": {
+          "count": 8,
+          "pct": 2.06
+        }
+      }
+    },
+    "inclusion": {
+      "rows": 215,
+      "sum_check": true,
+      "labels": {
+        "not enough information": {
+          "count": 109,
+          "pct": 50.7
+        },
+        "included": {
+          "count": 88,
+          "pct": 40.93
+        },
+        "not included": {
+          "count": 13,
+          "pct": 6.05
+        },
+        "not applicable": {
+          "count": 5,
+          "pct": 2.33
+        }
+      }
+    }
+  },
+  "val": {
+    "rows": 206,
+    "exclusion": {
+      "rows": 140,
+      "sum_check": true,
+      "labels": {
+        "not excluded": {
+          "count": 101,
+          "pct": 72.14
+        },
+        "not enough information": {
+          "count": 26,
+          "pct": 18.57
+        },
+        "not applicable": {
+          "count": 11,
+          "pct": 7.86
+        },
+        "excluded": {
+          "count": 2,
+          "pct": 1.43
+        }
+      }
+    },
+    "inclusion": {
+      "rows": 66,
+      "sum_check": true,
+      "labels": {
+        "included": {
+          "count": 35,
+          "pct": 53.03
+        },
+        "not enough information": {
+          "count": 27,
+          "pct": 40.91
+        },
+        "not included": {
+          "count": 3,
+          "pct": 4.55
+        },
+        "not applicable": {
+          "count": 1,
+          "pct": 1.52
+        }
+      }
+    }
+  },
+  "test": {
+    "rows": 206,
+    "exclusion": {
+      "rows": 131,
+      "sum_check": true,
+      "labels": {
+        "not excluded": {
+          "count": 91,
+          "pct": 69.47
+        },
+        "not enough information": {
+          "count": 28,
+          "pct": 21.37
+        },
+        "not applicable": {
+          "count": 12,
+          "pct": 9.16
+        }
+      }
+    },
+    "inclusion": {
+      "rows": 75,
+      "sum_check": true,
+      "labels": {
+        "not enough information": {
+          "count": 38,
+          "pct": 50.67
+        },
+        "included": {
+          "count": 27,
+          "pct": 36.0
+        },
+        "not included": {
+          "count": 7,
+          "pct": 9.33
+        },
+        "not applicable": {
+          "count": 3,
+          "pct": 4.0
+        }
+      }
+    }
+  }
+}
