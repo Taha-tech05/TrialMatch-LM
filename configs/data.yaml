@@ -1,1 +1,40 @@
-# Data paths and split settings (placeholder)
+# Data paths and split settings. All data code reads from here; do not hardcode.
+dataset:
+  hf_id: ncbi/TrialGPT-Criterion-Annotations
+  hf_split: train
+
+paths:
+  raw: data/raw/trialgpt_criterion_annotations.parquet
+  processed_dir: data/processed
+  splits_dir: data/splits
+  manifest: data/splits/split_manifest.json
+  inspection_json: results/metrics/data_inspection.json
+  inspection_md: docs/data_inspection.md
+
+split:
+  seed: 42
+  sizes: {train: 37, val: 8, test: 8}   # patients; total must be 53
+
+columns:
+  id: annotation_id
+  patient: patient_id
+  trial: trial_id
+  # Filled/confirmed by scripts/inspect_data.py (see docs/data_inspection.md)
+  label: expert_eligibility
+  evidence: expert_sentences
+  criterion_type: criterion_type
+  note: note
+  criterion_text: criterion_text
+
+# Previous model-generated predictions/explanations. NEVER feed these to a model
+# or an evaluator as input. They are removed from processed files and kept only
+# in a separate *_NOT_FOR_MODEL_USE file.
+forbidden_columns:
+  - gpt4_explanation
+  - explanation_correctness
+  - gpt4_sentences
+  - gpt4_eligibility
+
+# Columns whose purpose is unclear; flagged for human review (see inspection report).
+review_columns:
+  - training

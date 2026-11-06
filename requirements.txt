@@ -1,1 +1,12 @@
-# Dependencies will be added later.
+# Dataset download from the Hugging Face Hub
+datasets
+# Tabular data handling
+pandas
+# Parquet read/write
+pyarrow
+# Seeded shuffling for the patient split
+numpy
+# Test runner
+pytest
+# Reading configs/*.yaml
+pyyaml
