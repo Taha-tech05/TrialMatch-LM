@@ -68,11 +68,23 @@ def _device_map(device: str):
     return {"": 0} if device == "cuda" else {"": "cpu"}
 
 
+def _peft_attach(base_model, adapter):
+    """PeftModel.from_pretrained with a readable hint for the Colab torchao/peft version conflict."""
+    from peft import PeftModel
+    try:
+        return PeftModel.from_pretrained(base_model, str(adapter))
+    except ImportError as e:
+        if "torchao" in str(e):
+            raise ImportError(f"{e}
+Fix: run `pip uninstall -y torchao` (unused here) or `pip install -U torchao`, "
+                              "then re-run (restart the runtime if peft was already imported).") from e
+        raise
+
+
 def merge_adapter_into_base(base_model, adapter: str | Path):
     """Attach the LoRA adapter to an already loaded base model, merge it, return the plain model.
     Raises if any LoRA parameter is left."""
-    from peft import PeftModel
-    merged = PeftModel.from_pretrained(base_model, str(adapter)).merge_and_unload()
+    merged = _peft_attach(base_model, adapter).merge_and_unload()
     left = [n for n, _ in merged.named_parameters() if "lora_" in n]
     if left:
         raise RuntimeError(f"LoRA parameters remain after merge: {left[:3]}")
@@ -112,12 +124,10 @@ def load_merged(base_id: str | None = None, adapter: str | None = None, save_dir
               "device": device}
     before, texts = None, []
     if verify_prompts:
-        from peft import PeftModel
-
         from trialmatch.evaluation.generate_eval import build_items
         from trialmatch.model.chat import chat_prompt_text
         texts = [chat_prompt_text(tok, it["prompt"]) for it in build_items("val", False, verify_prompts)]
-        peft_model = PeftModel.from_pretrained(base, str(adapter)).eval()
+        peft_model = _peft_attach(base, adapter).eval()
         before = _last_logits(peft_model, tok, texts, device)
         merged = peft_model.merge_and_unload().eval()
     else:
