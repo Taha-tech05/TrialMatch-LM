@@ -1,1 +1,45 @@
-# Fine-tuning hyperparameters (placeholder)
+# Fine-tuning + evaluation settings. Read by trialmatch.training.config.load_train_config().
+model:
+  id: Qwen/Qwen3-4B
+  fallback_id: Qwen/Qwen3-1.7B        # use if a 3-epoch run is projected to exceed rule.max_projected_minutes
+  max_seq_len: 768                    # measured max prompt+target is 618 tokens; NO truncation (asserted)
+
+# qlora_4bit: NF4 base weights, fp16 compute.  lora_fp16: fp16 base weights, fp16 compute.
+quantization: qlora_4bit
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  # attention + MLP only. NOT lm_head / embed_tokens: embeddings are tied (tie_word_embeddings=true).
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+train:
+  learning_rate: 2.0e-4
+  num_epochs: 3
+  per_device_batch_size: 4
+  grad_accum_steps: 4                 # effective batch 16
+  warmup_ratio: 0.05                  # converted to an integer number of warmup steps
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  lr_scheduler: cosine
+  seed: 42
+  fp16: true                          # Colab T4 has no bf16
+  gradient_checkpointing: true
+  logging_steps: 1                    # train loss logged every optimizer step
+  save_total_limit: 3
+
+rule:
+  max_projected_minutes: 90           # 3-epoch projection above this -> switch to fallback_id
+
+# Outputs. The root can be redirected (e.g. to Google Drive) with the environment variable below.
+# <root>/checkpoints/<run>/, <root>/results/logs/, <root>/results/eval/
+output:
+  env_var: TRIALMATCH_OUT
+  default_root: "."                   # relative to the project root
+
+# Greedy decoding used for every evaluation (before/after comparisons must share these).
+generation:
+  max_new_tokens: 64
+  do_sample: false
+  batch_size: 8

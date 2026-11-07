@@ -1,0 +1,9 @@
+# GPU / training dependencies. Kept separate so local (CPU-only) installs stay light.
+# On Colab torch is preinstalled; do not downgrade it. Install order: requirements.txt, then this file.
+-r requirements.txt
+torch
+peft
+bitsandbytes
+accelerate
+datasets
+packaging

@@ -73,7 +73,46 @@ Also in `docs/prompt_example.md`.
 
 ## Training
 
+LoRA/QLoRA fine-tuning of `Qwen/Qwen3-4B` (fallback `Qwen/Qwen3-1.7B`). All settings are in `configs/train.yaml`:
+`max_seq_len` 768 (longest measured prompt+target is 618 tokens; nothing is truncated and this is asserted),
+fp16 compute (the Colab T4 has no bf16), LoRA r=16 / alpha=32 on attention and MLP projections only (not
+`lm_head`/embeddings: they are tied), seed 42, `quantization: qlora_4bit | lora_fp16`. The loss is computed on the
+answer JSON plus `<|im_end|>` only; the chat-templated prompt (`enable_thinking=False`) is masked. Annotation 883 is skipped.
+
+Outputs go under `$TRIALMATCH_OUT` if set (e.g. Google Drive), else the project root:
+`checkpoints/<run>/` (an adapter per epoch plus `adapter_final/`), `results/logs/train_<run>.{jsonl,csv}`
+(train loss every optimiser step, val loss every epoch) and `results/eval/`.
+
+Install GPU dependencies (torch is preinstalled on Colab; local installs stay light without this file):
+
+```bash
+pip install -r requirements.txt -r requirements-gpu.txt && pip install -e .
+python scripts/prepare_data.py                  # processed splits are not in git; this rebuilds them
+```
+
+On a Colab T4 (`notebooks/colab_runner.ipynb` runs exactly these):
+
+```bash
+python scripts/smoke_test_train.py              # ~15 steps: sec/step, peak GPU memory, 3-epoch projection, 4B-vs-1.7B advice
+python scripts/train.py                         # re-run the same command to resume after a disconnect
+python scripts/train.py --model Qwen/Qwen3-1.7B # fallback if the projection exceeds 90 minutes
+```
+
+Training stops with a clear message if the loss becomes NaN/inf (exit code 2); the log is kept.
+
 ## Evaluation
+
+Greedy decoding (`max_new_tokens` 64), the same prompt and settings for the base model and the adapter, parsed
+with the project parser. This step reports only accuracy and the invalid-output rate; the full metrics come later.
+
+```bash
+python scripts/evaluate.py --tag base                                            # base model, val split
+python scripts/evaluate.py --adapter $TRIALMATCH_OUT/checkpoints/qwen3-4b_qlora_4bit/adapter_final --tag finetuned
+# final, once only (refuses to run a second time without --force):
+python scripts/evaluate.py --adapter <adapter> --tag finetuned --split test --confirm-final
+```
+
+Raw outputs and parsed predictions: `results/eval/<tag>_<split>_predictions.jsonl`; summary: `..._summary.json`.
 
 ## KV-Cache/Attention/Speculative Benchmarks
 
