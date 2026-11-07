@@ -48,6 +48,7 @@ def assert_no_test_split(cmd: list[str]) -> None:
 def run_cmd(cmd: list[str], log_path: Path) -> int:
     """Run a command, echo its output to the console and to log_path, return the exit code."""
     assert_no_test_split(cmd)
+    crashed: list[bool] = []
     print("$ " + " ".join(cmd), flush=True)
     with open(log_path, "w", encoding="utf-8") as log:
         log.write("$ " + " ".join(cmd) + "\n")
@@ -56,7 +57,11 @@ def run_cmd(cmd: list[str], log_path: Path) -> int:
         for line in proc.stdout:
             sys.stdout.write(line)
             log.write(line)
-        return proc.wait()
+            if line.startswith("Traceback (most recent call last)"):
+                crashed.append(True)
+        code = proc.wait()
+    # An uncaught exception also exits with 1; only a clean exit 1 means "benchmark reported a mismatch".
+    return 2 if code == 1 and crashed else code
 
 
 def step_env(log_path: Path, out: Path) -> int:
