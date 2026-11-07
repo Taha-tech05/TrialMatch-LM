@@ -109,7 +109,8 @@ def build_commands(a, out: Path, merged: Path) -> dict[str, list[str]]:
     py = sys.executable
     q = a.quick
     cmds = {
-        "merge": [py, "scripts/merge_adapter.py", "--save"] + (["--verify-prompts", "2"] if q else []),
+        "merge": [py, "scripts/merge_adapter.py", "--save"] + (["--adapter", a.adapter] if a.adapter else [])
+        + (["--verify-prompts", "2"] if q else []),
         # split defaults to val; the test split is never requested
         "eval_merged_val": [py, "scripts/evaluate.py", "--merged", "--merged-dir", str(merged), "--tag", MERGED_TAG],
         "compute_metrics": [py, "scripts/compute_metrics.py", "--tags", "base", "finetuned", MERGED_TAG],
@@ -125,6 +126,7 @@ def main() -> int:
     ap.add_argument("--quick", action="store_true", help="pass --quick / fewer repeats to every benchmark and the merge check (val eval always covers the full val split)")
     ap.add_argument("--stop-on-failure", action="store_true", help="stop at the first failed step, benchmarks included")
     ap.add_argument("--keep-going", action="store_true", help="continue even if a setup step fails")
+    ap.add_argument("--adapter", help="adapter dir or Hub id for the merge step (default: configs/inference.yaml)")
     ap.add_argument("--skip", nargs="*", default=[], choices=STEPS)
     ap.add_argument("--only", nargs="*", default=[], choices=STEPS)
     a = ap.parse_args()
