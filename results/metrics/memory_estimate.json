@@ -1,0 +1,589 @@
+{
+  "note": "ESTIMATES only",
+  "t4_gib": 16.0,
+  "weights_gib": {
+    "Qwen/Qwen3-4B": {
+      "fp16": 7.492430686950684,
+      "int8": 3.746215343475342,
+      "4bit": 1.873107671737671
+    },
+    "Qwen/Qwen3-0.6B": {
+      "fp16": 1.4000244140625,
+      "int8": 0.70001220703125,
+      "4bit": 0.350006103515625
+    },
+    "Qwen/Qwen3-1.7B": {
+      "fp16": 3.7844104766845703,
+      "int8": 1.8922052383422852,
+      "4bit": 0.9461026191711426
+    }
+  },
+  "kv_gib": {
+    "Qwen/Qwen3-4B|b1": {
+      "512": 0.0703125,
+      "1024": 0.140625,
+      "2048": 0.28125,
+      "4096": 0.5625
+    },
+    "Qwen/Qwen3-4B|b4": {
+      "512": 0.28125,
+      "1024": 0.5625,
+      "2048": 1.125,
+      "4096": 2.25
+    },
+    "Qwen/Qwen3-0.6B|b1": {
+      "512": 0.0546875,
+      "1024": 0.109375,
+      "2048": 0.21875,
+      "4096": 0.4375
+    },
+    "Qwen/Qwen3-0.6B|b4": {
+      "512": 0.21875,
+      "1024": 0.4375,
+      "2048": 0.875,
+      "4096": 1.75
+    },
+    "Qwen/Qwen3-1.7B|b1": {
+      "512": 0.0546875,
+      "1024": 0.109375,
+      "2048": 0.21875,
+      "4096": 0.4375
+    },
+    "Qwen/Qwen3-1.7B|b4": {
+      "512": 0.21875,
+      "1024": 0.4375,
+      "2048": 0.875,
+      "4096": 1.75
+    }
+  },
+  "combined": [
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 512,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 0.125,
+      "total_gib": 9.017455101013184,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 1024,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 0.25,
+      "total_gib": 9.142455101013184,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 2048,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 0.5,
+      "total_gib": 9.392455101013184,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 4096,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 1.0,
+      "total_gib": 9.892455101013184,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 512,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 0.5,
+      "total_gib": 9.392455101013184,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 1024,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 1.0,
+      "total_gib": 9.892455101013184,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 2048,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 2.0,
+      "total_gib": 10.892455101013184,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 4096,
+      "weights_gib": 8.892455101013184,
+      "kv_gib": 4.0,
+      "total_gib": 12.892455101013184,
+      "fit": "TIGHT"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 512,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 0.125,
+      "total_gib": 4.571227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 1024,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 0.25,
+      "total_gib": 4.696227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 2048,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 0.5,
+      "total_gib": 4.946227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 4096,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 1.0,
+      "total_gib": 5.446227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 512,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 0.5,
+      "total_gib": 4.946227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 1024,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 1.0,
+      "total_gib": 5.446227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 2048,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 2.0,
+      "total_gib": 6.446227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 4096,
+      "weights_gib": 4.446227550506592,
+      "kv_gib": 4.0,
+      "total_gib": 8.446227550506592,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 512,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 0.125,
+      "total_gib": 2.348113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 1024,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 0.25,
+      "total_gib": 2.473113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 2048,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 0.5,
+      "total_gib": 2.723113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 4096,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 1.0,
+      "total_gib": 3.223113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 512,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 0.5,
+      "total_gib": 2.723113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 1024,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 1.0,
+      "total_gib": 3.223113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 2048,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 2.0,
+      "total_gib": 4.223113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-4B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 4096,
+      "weights_gib": 2.223113775253296,
+      "kv_gib": 4.0,
+      "total_gib": 6.223113775253296,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 512,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 0.109375,
+      "total_gib": 5.29380989074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 1024,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 0.21875,
+      "total_gib": 5.40318489074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 2048,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 0.4375,
+      "total_gib": 5.62193489074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 1,
+      "seq": 4096,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 0.875,
+      "total_gib": 6.05943489074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 512,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 0.4375,
+      "total_gib": 5.62193489074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 1024,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 0.875,
+      "total_gib": 6.05943489074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 2048,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 1.75,
+      "total_gib": 6.93443489074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "fp16",
+      "batch": 4,
+      "seq": 4096,
+      "weights_gib": 5.18443489074707,
+      "kv_gib": 3.5,
+      "total_gib": 8.68443489074707,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 512,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 0.109375,
+      "total_gib": 2.701592445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 1024,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 0.21875,
+      "total_gib": 2.810967445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 2048,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 0.4375,
+      "total_gib": 3.029717445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 1,
+      "seq": 4096,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 0.875,
+      "total_gib": 3.467217445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 512,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 0.4375,
+      "total_gib": 3.029717445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 1024,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 0.875,
+      "total_gib": 3.467217445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 2048,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 1.75,
+      "total_gib": 4.342217445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "int8",
+      "batch": 4,
+      "seq": 4096,
+      "weights_gib": 2.592217445373535,
+      "kv_gib": 3.5,
+      "total_gib": 6.092217445373535,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 512,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 0.109375,
+      "total_gib": 1.4054837226867676,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 1024,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 0.21875,
+      "total_gib": 1.5148587226867676,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 2048,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 0.4375,
+      "total_gib": 1.7336087226867676,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 1,
+      "seq": 4096,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 0.875,
+      "total_gib": 2.1711087226867676,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 512,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 0.4375,
+      "total_gib": 1.7336087226867676,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 1024,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 0.875,
+      "total_gib": 2.1711087226867676,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 2048,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 1.75,
+      "total_gib": 3.0461087226867676,
+      "fit": "fits"
+    },
+    {
+      "target": "Qwen/Qwen3-1.7B",
+      "draft": "Qwen/Qwen3-0.6B",
+      "precision": "4bit",
+      "batch": 4,
+      "seq": 4096,
+      "weights_gib": 1.2961087226867676,
+      "kv_gib": 3.5,
+      "total_gib": 4.796108722686768,
+      "fit": "fits"
+    }
+  ]
+}

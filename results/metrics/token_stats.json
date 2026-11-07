@@ -1,0 +1,136 @@
+{
+  "splits": [
+    "train",
+    "val"
+  ],
+  "n_rows": 808,
+  "excluded_annotation_ids": [
+    883
+  ],
+  "tokenizers": {
+    "Qwen/Qwen3-4B": {
+      "status": "ok",
+      "n_rows": 808,
+      "prompt": {
+        "n": 808,
+        "min": 220,
+        "mean": 310.3254950495049,
+        "median": 293.0,
+        "p95": 457.94999999999993,
+        "max": 591
+      },
+      "target": {
+        "n": 808,
+        "min": 14,
+        "mean": 16.26608910891089,
+        "median": 15.0,
+        "p95": 21.0,
+        "max": 39
+      },
+      "prompt_plus_target": {
+        "n": 808,
+        "min": 236,
+        "mean": 326.59158415841586,
+        "median": 310.0,
+        "p95": 475.29999999999995,
+        "max": 618
+      },
+      "rows_exceeding": {
+        "1024": 0,
+        "2048": 0,
+        "4096": 0
+      },
+      "longest_example": {
+        "annotation_id": 49,
+        "split": "train",
+        "prompt": 591,
+        "target": 27,
+        "total": 618
+      }
+    },
+    "Qwen/Qwen3-0.6B": {
+      "status": "ok",
+      "n_rows": 808,
+      "prompt": {
+        "n": 808,
+        "min": 220,
+        "mean": 310.3254950495049,
+        "median": 293.0,
+        "p95": 457.94999999999993,
+        "max": 591
+      },
+      "target": {
+        "n": 808,
+        "min": 14,
+        "mean": 16.26608910891089,
+        "median": 15.0,
+        "p95": 21.0,
+        "max": 39
+      },
+      "prompt_plus_target": {
+        "n": 808,
+        "min": 236,
+        "mean": 326.59158415841586,
+        "median": 310.0,
+        "p95": 475.29999999999995,
+        "max": 618
+      },
+      "rows_exceeding": {
+        "1024": 0,
+        "2048": 0,
+        "4096": 0
+      },
+      "longest_example": {
+        "annotation_id": 49,
+        "split": "train",
+        "prompt": 591,
+        "target": 27,
+        "total": 618
+      }
+    },
+    "Qwen/Qwen3-1.7B": {
+      "status": "ok",
+      "n_rows": 808,
+      "prompt": {
+        "n": 808,
+        "min": 220,
+        "mean": 310.3254950495049,
+        "median": 293.0,
+        "p95": 457.94999999999993,
+        "max": 591
+      },
+      "target": {
+        "n": 808,
+        "min": 14,
+        "mean": 16.26608910891089,
+        "median": 15.0,
+        "p95": 21.0,
+        "max": 39
+      },
+      "prompt_plus_target": {
+        "n": 808,
+        "min": 236,
+        "mean": 326.59158415841586,
+        "median": 310.0,
+        "p95": 475.29999999999995,
+        "max": 618
+      },
+      "rows_exceeding": {
+        "1024": 0,
+        "2048": 0,
+        "4096": 0
+      },
+      "longest_example": {
+        "annotation_id": 49,
+        "split": "train",
+        "prompt": 591,
+        "target": 27,
+        "total": 618
+      }
+    },
+    "meta-llama/Llama-3.2-3B-Instruct": {
+      "status": "SKIPPED",
+      "reason": "OSError: You are trying to access a gated repo."
+    }
+  }
+}

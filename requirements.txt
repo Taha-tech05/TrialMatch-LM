@@ -10,3 +10,9 @@ numpy
 pytest
 # Reading configs/*.yaml
 pyyaml
+# Tokenizers / hub metadata (no torch needed for measurement scripts)
+transformers
+huggingface_hub
+sentencepiece
+tiktoken
+protobuf
