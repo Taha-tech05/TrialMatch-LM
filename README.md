@@ -114,6 +114,25 @@ python scripts/evaluate.py --adapter <adapter> --tag finetuned --split test --co
 
 Raw outputs and parsed predictions: `results/eval/<tag>_<split>_predictions.jsonl`; summary: `..._summary.json`.
 
+### Metrics, baselines and error analysis (validation split; no torch/GPU needed)
+
+```bash
+pip install -r requirements.txt
+python scripts/compute_metrics.py    # results/metrics/val_metrics_<tag>.json, val_comparison.md, results/figures/*
+python scripts/export_errors.py      # results/error_analysis/*.csv (fine-tuned errors, 12 candidates, base-vs-finetuned diffs)
+python -m pytest tests/test_metrics.py
+```
+
+`compute_metrics.py` joins `results/eval/{base,finetuned}_val_predictions.jsonl` to the gold labels in
+`data/processed/val.parquet` (asserting every val annotation appears exactly once), and adds a baseline built from
+the majority label per criterion type in TRAIN plus always-empty evidence. It reports accuracy, per-class
+precision/recall/F1/support, macro-F1 over classes present in gold and over the full label set, confusion
+matrices (CSV and PNG in `results/figures/`, fixed label order, extra `invalid` column), invalid rate, and evidence
+precision/recall/F1 (micro and macro, with and without empty-gold rows), each overall, inclusion and exclusion.
+The overall scope pools both criterion types and uses the union of the two label sets. Training curves are written to
+`results/figures/training_curves.png`. Definitions are at the bottom of `results/metrics/val_comparison.md`.
+These scripts only ever read train/val files; the test split is not touched.
+
 ## KV-Cache/Attention/Speculative Benchmarks
 
 ## Running the App

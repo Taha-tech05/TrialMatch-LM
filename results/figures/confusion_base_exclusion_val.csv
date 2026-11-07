@@ -1,0 +1,5 @@
+gold \ predicted,excluded,not excluded,not enough information,not applicable,invalid
+excluded,0,2,0,0,0
+not excluded,1,99,1,0,0
+not enough information,4,22,0,0,0
+not applicable,0,11,0,0,0

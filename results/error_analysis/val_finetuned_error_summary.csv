@@ -1,0 +1,11 @@
+﻿category,n_rows,n_rows_as_primary,pct_of_all_rows
+invalid_output,0,0,0.0
+label_confusion:applicable_vs_not_applicable,16,16,7.8
+label_confusion:nei_gold_decided_pred,18,18,8.7
+label_confusion:decided_gold_nei_pred,16,16,7.8
+label_confusion:polarity,2,2,1.0
+evidence_wrong,7,3,3.4
+evidence_missing,27,18,13.1
+evidence_extra,32,19,15.5
+cites_boilerplate_consent_sentence,4,0,1.9
+ANY_ERROR (rows with >=1 category),92,92,44.7
