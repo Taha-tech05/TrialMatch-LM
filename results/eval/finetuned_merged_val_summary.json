@@ -1,0 +1,22 @@
+{
+  "tag": "finetuned_merged",
+  "split": "val",
+  "model": "Qwen/Qwen3-4B",
+  "quantization": "merged_fp16",
+  "adapter": "/content/drive/MyDrive/trialmatch/merged/qwen3-4b_merged_fp16",
+  "generation": {
+    "max_new_tokens": 64,
+    "do_sample": false,
+    "batch_size": 8,
+    "greedy": true
+  },
+  "limit": null,
+  "git_commit": "1f8cc4349918a8d9793dc45c37caf6b73f46ad18",
+  "seconds": 82.5,
+  "n": 206,
+  "n_valid": 206,
+  "n_invalid": 0,
+  "invalid_rate": 0.0,
+  "accuracy": 0.7330097087378641,
+  "accuracy_among_valid": 0.7330097087378641
+}

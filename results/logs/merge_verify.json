@@ -1,0 +1,13 @@
+{
+  "base_model": "Qwen/Qwen3-4B",
+  "adapter": "/content/drive/MyDrive/trialmatch/checkpoints/qwen3-4b_qlora_4bit/adapter_final",
+  "dtype": "float16",
+  "device": "cuda",
+  "lora_params_left": 0,
+  "n_params": 4022468096,
+  "verify": {
+    "n_prompts": 4,
+    "max_abs_logit_diff": 0.0478515625,
+    "top1_agreement": 1.0
+  }
+}
