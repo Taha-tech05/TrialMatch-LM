@@ -75,8 +75,7 @@ def _peft_attach(base_model, adapter):
         return PeftModel.from_pretrained(base_model, str(adapter))
     except ImportError as e:
         if "torchao" in str(e):
-            raise ImportError(f"{e}
-Fix: run `pip uninstall -y torchao` (unused here) or `pip install -U torchao`, "
+            raise ImportError(f"{e}\nFix: run `pip uninstall -y torchao` (unused here) or `pip install -U torchao`, "
                               "then re-run (restart the runtime if peft was already imported).") from e
         raise
 
