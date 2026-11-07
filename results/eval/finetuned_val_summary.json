@@ -1,0 +1,22 @@
+{
+  "tag": "finetuned",
+  "split": "val",
+  "model": "Qwen/Qwen3-4B",
+  "quantization": "qlora_4bit",
+  "adapter": "/content/drive/MyDrive/trialmatch/checkpoints/qwen3-4b_qlora_4bit/adapter_final",
+  "generation": {
+    "max_new_tokens": 64,
+    "do_sample": false,
+    "batch_size": 8,
+    "greedy": true
+  },
+  "limit": null,
+  "git_commit": "e319c2d79076a5e6d0a64024e3e3d496e80da510",
+  "seconds": 144.7,
+  "n": 206,
+  "n_valid": 206,
+  "n_invalid": 0,
+  "invalid_rate": 0.0,
+  "accuracy": 0.7475728155339806,
+  "accuracy_among_valid": 0.7475728155339806
+}

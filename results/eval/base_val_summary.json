@@ -1,0 +1,22 @@
+{
+  "tag": "base",
+  "split": "val",
+  "model": "Qwen/Qwen3-4B",
+  "quantization": "qlora_4bit",
+  "adapter": null,
+  "generation": {
+    "max_new_tokens": 64,
+    "do_sample": false,
+    "batch_size": 8,
+    "greedy": true
+  },
+  "limit": null,
+  "git_commit": "e319c2d79076a5e6d0a64024e3e3d496e80da510",
+  "seconds": 107.1,
+  "n": 206,
+  "n_valid": 206,
+  "n_invalid": 0,
+  "invalid_rate": 0.0,
+  "accuracy": 0.6262135922330098,
+  "accuracy_among_valid": 0.6262135922330098
+}
