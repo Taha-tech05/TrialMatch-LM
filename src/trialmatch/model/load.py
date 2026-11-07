@@ -40,6 +40,24 @@ def default_merged_dir(icfg: dict | None = None) -> Path:
     return output_root(load_train_config()) / icfg["merge"]["merged_default_relative"]
 
 
+def _check_adapter(adapter: str) -> None:
+    """Fail early on a local-looking adapter path that does not exist (a Hub id looks like 'user/name')."""
+    if adapter.startswith(("/", ".", "~")) or ":" in adapter[:3]:
+        p = Path(adapter).expanduser()
+        if not (p / "adapter_config.json").exists():
+            raise FileNotFoundError(
+                f"adapter not found at {p} (no adapter_config.json). Is TRIALMATCH_OUT set in this session "
+                "(run the 'OUT = ...' Colab cell) and did training finish? Pass --adapter <dir or Hub id>.")
+
+
+def _check_val_data() -> None:
+    from trialmatch.utils.common import load_config, resolve
+    path = resolve(load_config()["paths"]["processed_dir"]) / "val.parquet"
+    if not path.exists():
+        raise FileNotFoundError(f"{path} is missing. Run `python scripts/prepare_data.py` first "
+                                "(processed data is not in git), or use --verify-prompts 0.")
+
+
 def _dtype_kw(dtype) -> dict:
     import transformers
     from packaging.version import Version
@@ -83,6 +101,9 @@ def load_merged(base_id: str | None = None, adapter: str | None = None, save_dir
     icfg = inference_config()
     base_id = base_id or icfg["merge"]["base_model"]
     adapter = adapter or default_adapter(icfg)
+    _check_adapter(str(adapter))          # fail before downloading/loading 8 GB of weights
+    if verify_prompts:
+        _check_val_data()
     dev, dt = pick_device_dtype()
     device, dtype = device or dev, dtype or dt
     tok = load_tokenizer(base_id, padding_side="left")
@@ -134,6 +155,10 @@ def load_saved_merged(merged_dir: str | Path, device: str | None = None, dtype=N
     from transformers import AutoModelForCausalLM
 
     from trialmatch.model.loading import load_tokenizer
+    if not (Path(merged_dir) / "config.json").exists():
+        raise FileNotFoundError(
+            f"no saved merged model at '{merged_dir}' (no config.json). Run scripts/merge_adapter.py --save first, "
+            "and make sure TRIALMATCH_OUT is set in this session (an empty value gives paths like '/merged/...').")
     dev, dt = pick_device_dtype()
     device, dtype = device or dev, dtype or dt
     model = AutoModelForCausalLM.from_pretrained(str(merged_dir), device_map=_device_map(device), **_dtype_kw(dtype))
