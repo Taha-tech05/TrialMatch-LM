@@ -40,7 +40,10 @@ def sdpa_attention(q, k, v, causal: bool = True, scale: float | None = None, bac
 
 def try_sdpa(q, k, v, causal: bool = True, scale: float | None = None, backend: str = "auto"):
     """(output, None) on success, (None, "<ExceptionType>: message") otherwise (including CPU / missing backend)."""
+    import warnings
     try:
-        return sdpa_attention(q, k, v, causal, scale, backend), None
+        with warnings.catch_warnings():   # torch warns on every rejected fused kernel; the error string already says why
+            warnings.simplefilter("ignore")
+            return sdpa_attention(q, k, v, causal, scale, backend), None
     except Exception as e:  # noqa: BLE001 - report any backend failure, including OOM
         return None, f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"

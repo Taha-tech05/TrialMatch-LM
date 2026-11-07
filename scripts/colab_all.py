@@ -88,7 +88,10 @@ def step_env(log_path: Path, out: Path) -> int:
 
 
 def merged_dir_ready(d: Path) -> bool:
-    return d.is_dir() and (d / "config.json").exists()
+    """Complete save only: save_merged() writes merge_info.json LAST, after config and weights, so a partial/interrupted
+    save (config.json but no weights) is not treated as done and gets re-merged."""
+    has_weights = d.is_dir() and any(d.glob("*.safetensors")) or (d / "pytorch_model.bin").exists()
+    return d.is_dir() and (d / "config.json").exists() and (d / "merge_info.json").exists() and bool(has_weights)
 
 
 def sync_val_predictions(out: Path) -> None:
