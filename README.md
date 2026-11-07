@@ -164,6 +164,41 @@ tokens/s, peak GPU memory, mean/std/min/max/median over repeats (default 5, 1 wa
 per case, and the environment (GPU, torch/transformers versions, dtype, git commit). The uncached runs at 1024 input x 128 output are slow
 (a full forward per token): use `--repeats 3` if the session is short. Test split is never read.
 
+## Attention Benchmarks
+
+Code: `src/trialmatch/inference/attention/` - `reference.py` (explicit scores -> additive mask -> max-subtracted softmax -> V,
+plus `repeat_kv`), `tiled.py` (plain-PyTorch online-softmax attention over query/key blocks; update equations in its docstring),
+`sdpa_backends.py` (torch SDPA with selectable backend, comparison only, not used by the other two or by the model).
+Conventions: causal mask with offset (query i sees key j iff `j <= i + seq_k - seq_q`), fp32 accumulation with output in the
+input dtype, all-zero output for a query that sees no key, GQA by repeating each KV head for its group (query head h uses KV head h // group).
+
+```bash
+python -m pytest tests/test_attention_correctness.py -q      # CPU; tiled vs reference, SDPA, HF eager, stress, hand example
+python tests/test_attention_correctness.py                   # prints the max/mean error table (shapes x block sizes)
+python scripts/bench_attention.py --quick                    # small sweep (CPU ok, fp32)
+python scripts/bench_attention.py                            # GPU: fp16, seq 128..4096, heads 32 / kv heads 8 / head_dim 128, blocks 32/64/128/256, 10 repeats
+```
+
+Output: `results/benchmarks/attention_<timestamp>.{json,csv,png}` (under `$TRIALMATCH_OUT` if set): time and peak memory per
+implementation and sequence length, max/mean absolute error against an fp32 reference, OOM / unavailable backends recorded
+instead of crashing, and the environment (GPU, versions, dtype, git commit). Exit code 1 if tiled/reference differ from the fp32
+baseline by more than the tolerance. Notes to fill in: `docs/attention_notes.md`.
+
+## One-click Colab run
+
+After the setup cells of `notebooks/colab_runner.ipynb` (clone, install, `TRIALMATCH_OUT` set), run the last cell, or:
+
+```bash
+python scripts/colab_all.py            # env log -> merge (skipped if merged dir exists) -> merged VAL eval -> compute_metrics -> KV-cache bench -> attention bench
+python scripts/colab_all.py --quick    # --quick / fewer repeats in the benchmarks and the merge check
+python scripts/colab_all.py --stop-on-failure --skip bench_kv_cache
+```
+
+Logs go to `$TRIALMATCH_OUT/logs/<step>.log`, results to `$TRIALMATCH_OUT/results/`, and the per-step outcome to
+`results/benchmarks/run_summary.json`. A benchmark exiting with code 1 (mismatch) is recorded as `mismatch` and the run continues;
+a setup-step failure stops the run unless `--keep-going`. The speculative-decoding benchmark is a placeholder step. The test
+split is never evaluated (the script refuses any command containing `--confirm-final` or `--split test`).
+
 ## KV-Cache/Attention/Speculative Benchmarks
 
 ## Running the App
