@@ -1,1 +1,19 @@
-# Inference, cache, attention and speculative settings (placeholder)
+# Inference settings: merged fp16 model, KV-cache decoder and benchmarks.
+# Benchmarks for Tasks 3-5 all run on ONE merged fp16 model (base Qwen3-4B + LoRA adapter, merge_and_unload).
+merge:
+  base_model: Qwen/Qwen3-4B
+  # Adapter: a local directory or a Hugging Face Hub id. null -> <TRIALMATCH_OUT>/<adapter_default_relative>.
+  adapter: null
+  adapter_default_relative: checkpoints/qwen3-4b_qlora_4bit/adapter_final
+  # Optional save target (~8 GB, NOT committed): <TRIALMATCH_OUT>/<merged_default_relative>.
+  merged_default_relative: merged/qwen3-4b_merged_fp16
+  verify_prompts: 4            # val prompts used to compare unmerged vs merged logits
+
+kv_cache_benchmark:
+  input_lengths: [128, 256, 512, 1024]
+  output_lengths: [16, 64, 128]
+  warmup: 1
+  repeats: 5
+  val_prompts: 16              # real val prompts for --mode val
+  val_max_new_tokens: 64       # same as configs/train.yaml generation.max_new_tokens
+  seed: 0

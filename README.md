@@ -133,6 +133,37 @@ The overall scope pools both criterion types and uses the union of the two label
 `results/figures/training_curves.png`. Definitions are at the bottom of `results/metrics/val_comparison.md`.
 These scripts only ever read train/val files; the test split is not touched.
 
+## KV-Cache Benchmarks
+
+All inference benchmarks (KV cache, tiled attention, speculative decoding) use ONE model: Qwen3-4B + the LoRA
+adapter **merged into fp16 weights** (`merge_and_unload`, no quantization). The merged model is ~8 GB: it is saved
+under `$TRIALMATCH_OUT/merged/` (Google Drive on Colab) and **never committed**. The adapter was trained on a 4-bit base,
+so merged-fp16 predictions can differ slightly from the earlier 4-bit-base val result (0.748 accuracy); re-run val to compare.
+
+Code: `src/trialmatch/inference/kv_cache/` (`reference_decode.py` = uncached greedy, every step a full forward;
+`cached_decode.py` = explicit prefill + one-token decode steps with explicit `position_ids`, `cache_position`, growing
+mask and `past_key_values`; `cache_utils.py` = length/shape/bytes helpers; `compare.py` = mismatch investigator).
+CPU tests (tiny random Qwen3, fp32, no downloads): `python -m pytest tests/test_cache_equivalence.py tests/test_kv_bench_and_merge.py`.
+Batch size 1 is the benchmarked case; left-padded batches are also supported and tested.
+
+Colab T4 commands (run after the setup cells of `notebooks/colab_runner.ipynb`; `OUT` is `$TRIALMATCH_OUT`):
+
+```bash
+# 1. merge + verify (unmerged-vs-merged logits on 4 val prompts) + save the merged fp16 model
+python scripts/merge_adapter.py --adapter $TRIALMATCH_OUT/checkpoints/qwen3-4b_qlora_4bit/adapter_final --save
+# 2. re-evaluate VAL on the merged fp16 model (same prompt + greedy settings) and compare with finetuned (4-bit base)
+python scripts/evaluate.py --merged --merged-dir $TRIALMATCH_OUT/merged/qwen3-4b_merged_fp16 --tag finetuned_merged
+python scripts/compute_metrics.py
+# 3. benchmark cached vs uncached: synthetic lengths 128/256/512/1024 x 16/64/128 AND real val prompts
+python scripts/bench_kv_cache.py --merged-dir $TRIALMATCH_OUT/merged/qwen3-4b_merged_fp16 --mode both
+# quicker check first: python scripts/bench_kv_cache.py --merged-dir ... --quick
+```
+
+Results: `results/benchmarks/kv_cache_<timestamp>.{json,csv,png}` (under `$TRIALMATCH_OUT`): prefill / decode / total time,
+tokens/s, peak GPU memory, mean/std/min/max/median over repeats (default 5, 1 warm-up), cached-vs-uncached token equality
+per case, and the environment (GPU, torch/transformers versions, dtype, git commit). The uncached runs at 1024 input x 128 output are slow
+(a full forward per token): use `--repeats 3` if the session is short. Test split is never read.
+
 ## KV-Cache/Attention/Speculative Benchmarks
 
 ## Running the App

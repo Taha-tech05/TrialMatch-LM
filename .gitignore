@@ -62,3 +62,6 @@ desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# Merged fp16 model (~8 GB, never committed)
+merged/

@@ -2,6 +2,8 @@
 
   python scripts/evaluate.py --tag base                                   # base model, val split
   python scripts/evaluate.py --adapter <run_dir>/adapter_final --tag ft   # fine-tuned, val split
+  python scripts/evaluate.py --merged --adapter <run_dir>/adapter_final --tag finetuned_merged   # fp16 merged, val
+  python scripts/evaluate.py --merged --merged-dir <saved merged dir> --tag finetuned_merged     # saved merged model
   python scripts/evaluate.py --adapter ... --tag ft --split test --confirm-final   # ONCE, at the very end
 """
 import argparse
@@ -20,13 +22,20 @@ if __name__ == "__main__":
     ap.add_argument("--force", action="store_true", help="allow a repeated test-split run")
     ap.add_argument("--adapter", help="adapter directory; omit to evaluate the base model")
     ap.add_argument("--tag", help="output name prefix (default: 'base' or the adapter folder name)")
+    ap.add_argument("--merged", action="store_true",
+                    help="evaluate the merged fp16 model (no quantization); needs --adapter or --merged-dir")
+    ap.add_argument("--merged-dir", help="saved merged model directory (with --merged)")
     ap.add_argument("--model")
     ap.add_argument("--quantization", choices=["qlora_4bit", "lora_fp16"])
     ap.add_argument("--batch-size", type=int)
     ap.add_argument("--limit", type=int, help="first N rows only (val only; for quick checks)")
     a = ap.parse_args()
 
+    if a.merged and not (a.adapter or a.merged_dir):
+        sys.exit("--merged needs --adapter (merge now) or --merged-dir (load a saved merged model)")
     cfg = load_train_config(a.model, a.quantization)
+    if a.merged:
+        cfg["quantization"] = "merged_fp16"  # recorded in the summary; same prompt and greedy settings
     if a.batch_size:
         cfg["generation"]["batch_size"] = a.batch_size
     eval_dir = run_paths(cfg)["eval"]
@@ -35,11 +44,16 @@ if __name__ == "__main__":
     except TestGuardError as e:
         sys.exit(f"REFUSED: {e}")
 
-    from trialmatch.model.loading import load_tokenizer, load_with_adapter
-    tok = load_tokenizer(cfg["model"]["id"], padding_side="left")
-    model = load_with_adapter(cfg["model"]["id"], cfg["quantization"], a.adapter)
-    tag = a.tag or (Path(a.adapter).name if a.adapter else "base")
+    if a.merged:
+        from trialmatch.model.load import load_merged_for_inference
+        model, tok = load_merged_for_inference(a.adapter, a.merged_dir)
+        tag = a.tag or "finetuned_merged"
+    else:
+        from trialmatch.model.loading import load_tokenizer, load_with_adapter
+        tok = load_tokenizer(cfg["model"]["id"], padding_side="left")
+        model = load_with_adapter(cfg["model"]["id"], cfg["quantization"], a.adapter)
+        tag = a.tag or (Path(a.adapter).name if a.adapter else "base")
     try:
-        run_eval(model, tok, cfg, a.split, tag, eval_dir, a.adapter, a.confirm_final, a.force, a.limit)
+        run_eval(model, tok, cfg, a.split, tag, eval_dir, a.adapter or a.merged_dir, a.confirm_final, a.force, a.limit)
     except TestGuardError as e:
         sys.exit(f"REFUSED: {e}")
