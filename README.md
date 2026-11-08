@@ -189,15 +189,48 @@ baseline by more than the tolerance. Notes to fill in: `docs/attention_notes.md`
 After the setup cells of `notebooks/colab_runner.ipynb` (clone, install, `TRIALMATCH_OUT` set), run the last cell, or:
 
 ```bash
-python scripts/colab_all.py            # env log -> merge (skipped if merged dir exists) -> merged VAL eval -> compute_metrics -> KV-cache bench -> attention bench
+python scripts/colab_all.py            # env log -> merge (skipped if merged dir exists) -> merged VAL eval -> compute_metrics -> KV-cache bench -> attention bench -> speculative bench
 python scripts/colab_all.py --quick    # --quick / fewer repeats in the benchmarks and the merge check
 python scripts/colab_all.py --stop-on-failure --skip bench_kv_cache
 ```
 
 Logs go to `$TRIALMATCH_OUT/logs/<step>.log`, results to `$TRIALMATCH_OUT/results/`, and the per-step outcome to
 `results/benchmarks/run_summary.json`. A benchmark exiting with code 1 (mismatch) is recorded as `mismatch` and the run continues;
-a setup-step failure stops the run unless `--keep-going`. The speculative-decoding benchmark is a placeholder step. The test
+a setup-step failure stops the run unless `--keep-going`. `--resume-bench` continues the latest KV-cache and speculative result files after a disconnect. The test
 split is never evaluated (the script refuses any command containing `--confirm-final` or `--split test`).
+
+## Speculative Decoding Benchmarks
+
+Code: `src/trialmatch/inference/speculative/` - `speculative_decode.py` (explicit greedy speculative decoding: both models
+prefilled, draft proposes k tokens, ONE target forward verifies them, longest matching prefix accepted, target's own token as
+correction/bonus, both KV caches cropped back), `cache_sync.py` (crop with the transformers 5.x API plus a slicing fallback),
+`stats.py` (acceptance rate, tokens per target forward, accepted-run histogram, draft/verify time), `loading.py` (draft loader),
+`hf_assisted_reference.py` (HF `assistant_model`, **cross-check in tests only**). **Batch size 1 only.** Output is token-identical to
+the plain cached greedy decoder (fp32 tests; fp16 near-ties are reported by the benchmark, not hidden).
+Target = merged fp16 Qwen3-4B; draft = untuned `Qwen/Qwen3-0.6B` by default. Change it in `configs/inference.yaml`
+(`speculative_benchmark.draft_model / draft_dir / draft_adapter`) or with `--draft-model / --draft-dir / --draft-adapter`
+(a fine-tuned draft is not trained in this step).
+
+CPU tests (tiny random Qwen3 target + smaller draft, fp32, no downloads):
+`python -m pytest tests/test_speculative_equivalence.py tests/test_speculative_bench.py`.
+
+Colab T4 commands (after the merged model exists, see KV-Cache Benchmarks; `$TRIALMATCH_OUT` set):
+
+```bash
+M=$TRIALMATCH_OUT/merged/qwen3-4b_merged_fp16
+python scripts/bench_speculative.py --merged-dir $M --quick --max-configs 6    # short sanity run first
+python scripts/bench_speculative.py --merged-dir $M                            # full: 128/256/512 x 16/64/128, k 1 2 4 8, 8 val prompts, 3 repeats
+python scripts/bench_speculative.py --merged-dir $M --resume                   # after a disconnect: continue the latest file
+python scripts/bench_speculative.py --merged-dir $M --draft-adapter <path>     # later: a fine-tuned draft adapter
+python scripts/colab_all.py --only bench_speculative [--quick] [--resume-bench]
+python scripts/bench_kv_cache.py --merged-dir $M --resume                      # the KV-cache benchmark resumes the same way
+```
+
+Results: `results/benchmarks/speculative_<timestamp>.{json,csv,png}` (under `$TRIALMATCH_OUT`), rewritten after EVERY
+configuration. Per row: acceptance rate, mean accepted per iteration, wall latency, tokens/s, speedup vs plain cached decoding,
+draft vs verify time, peak memory (both models loaded), token-equality flag (a mismatch records the first differing step and
+the logit gap), plus the environment (GPU, versions, dtype, git commit). Exit code 1 if any output differs from plain greedy.
+Test split is never read. Notes to fill in: `docs/speculative_notes.md`.
 
 ## KV-Cache/Attention/Speculative Benchmarks
 

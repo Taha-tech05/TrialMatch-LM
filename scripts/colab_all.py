@@ -1,4 +1,4 @@
-"""One-click Colab run: environment log -> merge -> merged VAL eval -> metrics -> KV-cache bench -> attention bench.
+"""One-click Colab run: environment log -> merge -> merged VAL eval -> metrics -> KV-cache bench -> attention bench -> speculative bench.
 
   python scripts/colab_all.py                 # full run
   python scripts/colab_all.py --quick         # --quick / fewer repeats in every benchmark
@@ -122,7 +122,12 @@ def build_commands(a, out: Path, merged: Path) -> dict[str, list[str]]:
         "bench_kv_cache": [py, "scripts/bench_kv_cache.py", "--merged-dir", str(merged), "--mode", "both"]
         + (["--quick"] if q else []),
         "bench_attention": [py, "scripts/bench_attention.py"] + (["--quick"] if q else []),
+        "bench_speculative": [py, "scripts/bench_speculative.py", "--merged-dir", str(merged)]
+        + (["--quick"] if q else []),
     }
+    if a.resume_bench:   # continue the latest result files of the incrementally saving benchmarks
+        cmds["bench_kv_cache"].append("--resume")
+        cmds["bench_speculative"].append("--resume")
     return cmds
 
 
@@ -131,6 +136,7 @@ def main() -> int:
     ap.add_argument("--quick", action="store_true", help="pass --quick / fewer repeats to every benchmark and the merge check (val eval always covers the full val split)")
     ap.add_argument("--stop-on-failure", action="store_true", help="stop at the first failed step, benchmarks included")
     ap.add_argument("--keep-going", action="store_true", help="continue even if a setup step fails")
+    ap.add_argument("--resume-bench", action="store_true", help="pass --resume to bench_kv_cache and bench_speculative (continue the latest result file after a disconnect)")
     ap.add_argument("--adapter", help="adapter dir or Hub id for the merge step (default: configs/inference.yaml)")
     ap.add_argument("--skip", nargs="*", default=[], choices=STEPS)
     ap.add_argument("--only", nargs="*", default=[], choices=STEPS)
@@ -159,9 +165,6 @@ def main() -> int:
         t0 = time.time()
         if stopped:
             rec.update(status="not_run", note="earlier step failed")
-        elif name == "bench_speculative":
-            rec.update(status="skipped", note="placeholder: speculative decoding benchmark not implemented yet")
-            print(rec["note"])
         elif name == "merge" and merged_dir_ready(merged):
             rec.update(status="skipped", note=f"merged model already exists: {merged}")
             print(rec["note"])

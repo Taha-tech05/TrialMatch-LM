@@ -99,14 +99,26 @@ def bench_case(model, ids, n_new, eos, device, warmup, repeats, compare_on_misma
     return case
 
 
-def run_grid(model, device, vocab_size, input_lengths, output_lengths, warmup, repeats, seed, base_ids=None):
+def case_key(c: dict) -> str:
+    """Identity of a case for --resume: source, val annotation id, input length, requested output length."""
+    return f"{c['source']}|{c.get('annotation_id', '-')}|{c['input_len']}|{c['target_new_tokens']}"
+
+
+def run_grid(model, device, vocab_size, input_lengths, output_lengths, warmup, repeats, seed, base_ids=None,
+             done=None, on_case=None):
+    """done: set of case_key()s to skip (resume). on_case(case): called after EVERY case (incremental saving)."""
     cases = []
+    done = done or set()
     for L in input_lengths:
         ids = synthetic_input(L, vocab_size, seed, base_ids)
         for n in output_lengths:
+            if f"synthetic|-|{L}|{n}" in done:
+                continue
             c = bench_case(model, ids, n, None, device, warmup, repeats)
             c["source"] = "synthetic"
             cases.append(c)
+            if on_case:
+                on_case(c)
             d = c["decoders"]
             print(f"[synthetic in={L:5d} out={n:4d}] cached {d['cached']['total_s']['median']:.3f}s "
                   f"({d['cached']['tokens_per_s']['median']:.1f} tok/s) | uncached {d['uncached']['total_s']['median']:.3f}s "
@@ -114,14 +126,19 @@ def run_grid(model, device, vocab_size, input_lengths, output_lengths, warmup, r
     return cases
 
 
-def run_val(model, tok, device, n_prompts, max_new, warmup, repeats):
+def run_val(model, tok, device, n_prompts, max_new, warmup, repeats, done=None, on_case=None):
     from trialmatch.model.chat import end_token_id
     eos = end_token_id(tok)
     cases = []
+    done = done or set()
     for aid, ids in val_inputs(tok, n_prompts):
+        if f"val|{aid}|{ids.shape[1]}|{max_new}" in done:
+            continue
         c = bench_case(model, ids, max_new, eos, device, warmup, repeats)
         c.update(source="val", annotation_id=aid)
         cases.append(c)
+        if on_case:
+            on_case(c)
         print(f"[val id={aid} in={c['input_len']} new={c['n_new_tokens']}] equal={c['tokens_equal']} "
               f"cached {c['decoders']['cached']['total_s']['median']:.3f}s uncached "
               f"{c['decoders']['uncached']['total_s']['median']:.3f}s", flush=True)
@@ -142,7 +159,16 @@ def csv_rows(cases: list[dict]) -> list[dict]:
     return rows
 
 
-def write_results(out_dir: Path, env: dict, args: dict, cases: list[dict], stamp: str | None = None):
+def latest_results(out_dir: Path):
+    """(stamp, loaded json) of the newest kv_cache_*.json, or (None, None) - for --resume."""
+    files = sorted(Path(out_dir).glob("kv_cache_*.json"))
+    if not files:
+        return None, None
+    return files[-1].stem.removeprefix("kv_cache_"), json.loads(files[-1].read_text(encoding="utf-8"))
+
+
+def write_results(out_dir: Path, env: dict, args: dict, cases: list[dict], stamp: str | None = None,
+                  with_plot: bool = True):
     stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
     out_dir.mkdir(parents=True, exist_ok=True)
     jp, cp, pp = (out_dir / f"kv_cache_{stamp}{e}" for e in (".json", ".csv", ".png"))
@@ -153,7 +179,8 @@ def write_results(out_dir: Path, env: dict, args: dict, cases: list[dict], stamp
         w = csv.DictWriter(f, list(rows[0]))
         w.writeheader()
         w.writerows(rows)
-    plot(cases, pp, env)
+    if with_plot:
+        plot(cases, pp, env)
     return jp, cp, pp
 
 

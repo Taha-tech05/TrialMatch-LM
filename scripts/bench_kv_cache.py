@@ -23,6 +23,7 @@ if __name__ == "__main__":
     ap.add_argument("--warmup", type=int)
     ap.add_argument("--val-prompts", type=int)
     ap.add_argument("--quick", action="store_true", help="inputs 128/256, outputs 16/64, 2 repeats, 4 val prompts")
+    ap.add_argument("--resume", action="store_true", help="continue the latest kv_cache_*.json, skipping finished cases")
     ap.add_argument("--out-dir")
     a = ap.parse_args()
 
@@ -56,19 +57,32 @@ if __name__ == "__main__":
     env = kb.environment(model, device, next(model.parameters()).dtype)
     print(env)
 
-    cases = []
+    out_dir = Path(a.out_dir) if a.out_dir else output_root(load_train_config()) / "results" / "benchmarks"
+    args = {**vars(a), "input_lengths": ins, "output_lengths": outs, "repeats": reps, "warmup": warm,
+            "val_prompts": nval}
+    import time
+    stamp, prev = kb.latest_results(out_dir) if a.resume else (None, None)
+    stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
+    cases = list(prev["cases"]) if prev else []
+    done = {kb.case_key(c) for c in cases}
+    if prev:
+        print(f"resuming {stamp}: {len(done)} cases already done", flush=True)
+
+    def on_case(c):                     # incremental saving: json + csv rewritten after EVERY case
+        cases.append(c)
+        kb.write_results(out_dir, env, args, cases, stamp, with_plot=False)
+
     if a.mode in ("synthetic", "both"):
         base_ids = None
         if tok is not None:  # tile a real val prompt so synthetic text is natural; falls back to random ids
             base_ids = kb.val_inputs(tok, 1)[0][1][0].tolist()
-        cases += kb.run_grid(model, device, vocab, ins, outs, warm, reps, bc["seed"], base_ids)
+        kb.run_grid(model, device, vocab, ins, outs, warm, reps, bc["seed"], base_ids, done=done, on_case=on_case)
     if a.mode in ("val", "both"):
-        cases += kb.run_val(model, tok, device, nval, bc["val_max_new_tokens"], warm, reps)
+        kb.run_val(model, tok, device, nval, bc["val_max_new_tokens"], warm, reps, done=done, on_case=on_case)
 
-    out_dir = Path(a.out_dir) if a.out_dir else output_root(load_train_config()) / "results" / "benchmarks"
-    args = {**vars(a), "input_lengths": ins, "output_lengths": outs, "repeats": reps, "warmup": warm,
-            "val_prompts": nval}
-    jp, cp, pp = kb.write_results(out_dir, env, args, cases)
+    if not cases:
+        sys.exit("no cases")
+    jp, cp, pp = kb.write_results(out_dir, env, args, cases, stamp)
     ok = all(c["tokens_equal"] for c in cases)
     print(f"\nall cached==uncached token sequences equal: {ok}\nsaved: {jp}\n       {cp}\n       {pp}")
     sys.exit(0 if ok else 1)

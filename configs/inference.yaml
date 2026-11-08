@@ -17,3 +17,18 @@ kv_cache_benchmark:
   val_prompts: 16              # real val prompts for --mode val
   val_max_new_tokens: 64       # same as configs/train.yaml generation.max_new_tokens
   seed: 0
+
+speculative_benchmark:
+  # Target = the merged fp16 model above. Draft = untuned Qwen3-0.6B by default (identical tokenizer).
+  draft_model: Qwen/Qwen3-0.6B
+  draft_dir: null              # optional: local dir of a fully fine-tuned draft (overrides draft_model)
+  draft_adapter: null          # optional: LoRA adapter dir/Hub id merged into the draft (draft fine-tuning is a later step)
+  k: 4                         # default number of draft tokens per iteration
+  k_sweep: [1, 2, 4, 8]
+  input_lengths: [128, 256, 512]
+  output_lengths: [16, 64, 128]
+  warmup: 1
+  repeats: 3
+  val_prompts: 8               # real VAL prompts (answers are short, ~15-38 tokens)
+  val_max_new_tokens: 64
+  seed: 0
