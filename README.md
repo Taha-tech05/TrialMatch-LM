@@ -222,7 +222,7 @@ python scripts/bench_speculative.py --merged-dir $M --quick --max-configs 6    #
 python scripts/bench_speculative.py --merged-dir $M                            # full: 128/256/512 x 16/64/128, k 1 2 4 8, 8 val prompts, 3 repeats
 python scripts/bench_speculative.py --merged-dir $M --resume                   # after a disconnect: continue the latest file
 python scripts/bench_speculative.py --merged-dir $M --draft-adapter <path>     # later: a fine-tuned draft adapter
-python scripts/colab_all.py --only bench_speculative [--quick] [--resume-bench]
+python scripts/colab_all.py --only bench_speculative                 # add --quick and/or --resume-bench as needed (no brackets)
 python scripts/bench_kv_cache.py --merged-dir $M --resume                      # the KV-cache benchmark resumes the same way
 ```
 

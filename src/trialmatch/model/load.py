@@ -168,6 +168,13 @@ def load_saved_merged(merged_dir: str | Path, device: str | None = None, dtype=N
         raise FileNotFoundError(
             f"no saved merged model at '{merged_dir}' (no config.json). Run scripts/merge_adapter.py --save first, "
             "and make sure TRIALMATCH_OUT is set in this session (an empty value gives paths like '/merged/...').")
+    d = Path(merged_dir)
+    if not (any(d.glob("*.safetensors")) or (d / "pytorch_model.bin").exists() or any(d.glob("pytorch_model*.bin"))):
+        found = sorted(f.name for f in d.iterdir())[:12]
+        raise FileNotFoundError(
+            f"merged model dir '{merged_dir}' has config.json but NO weight files (found: {found}). The earlier save was "
+            "interrupted or the weights are not synced to Drive yet. Delete the directory and re-run "
+            "`python scripts/merge_adapter.py --adapter <adapter_dir> --save` (or `python scripts/colab_all.py --only merge`).")
     dev, dt = pick_device_dtype()
     device, dtype = device or dev, dtype or dt
     model = AutoModelForCausalLM.from_pretrained(str(merged_dir), device_map=_device_map(device), **_dtype_kw(dtype))
