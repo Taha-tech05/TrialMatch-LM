@@ -236,6 +236,39 @@ Test split is never read. Notes to fill in: `docs/speculative_notes.md`.
 
 ## Running the App
 
+Browser app: FastAPI backend + one static page (no npm, no CDN, works offline). Two views: **Clinical Screening
+Workspace** (note + criteria -> per-criterion labels, cited sentences, template explanations, preliminary outcome,
+report export) and **Inference Lab** (saved T4 benchmarks, live mini-benchmark, token stream, tiled-attention visualizer).
+
+```bash
+pip install -r requirements.txt -r requirements-app.txt      # core + app deps (torch/transformers only for real mode)
+python scripts/launch_app.py                                  # then open http://localhost:7860
+```
+
+| Command | What it does |
+|---|---|
+| `python scripts/launch_app.py --mode demo` | Cached REAL validation predictions only (`results/eval/finetuned_merged_val_predictions.jsonl`). No torch/model needed. Every output is bannered "DEMO MODE: cached validation prediction, not live inference"; anything not in the cache gets "cannot predict in demo mode". |
+| `python scripts/launch_app.py --mode real --merged-dir PATH` | Loads the merged Qwen3-4B once in a background thread (header shows LOADING, Run disabled until READY). Model source order: `--merged-dir`, env `TRIALMATCH_MERGED_DIR`, `real.merged_dir` in `configs/app.yaml`, the default merged dir, then base + adapter (`TRIALMATCH_ADAPTER` / `real.adapter` / `real.adapter_hub_id`). Nothing is downloaded unless you configure an adapter/Hub id or pick the 0.6B model. |
+| `python scripts/launch_app.py` (`--mode auto`) | Real if a model source exists and loads, else demo (the header says which). |
+| `... --share` | Public link via `cloudflared` or `ngrok` **only if already installed**; otherwise prints install instructions. The app binds to 127.0.0.1 by default. |
+
+**Colab (backup, T4 GPU):** after mounting Drive and setting `TRIALMATCH_OUT` as in the Colab runner:
+```python
+!pip -q install -r requirements-app.txt
+!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared && chmod +x cloudflared
+!python scripts/launch_app.py --mode real --merged-dir $TRIALMATCH_OUT/merged/qwen3-4b_merged_fp16 --share
+```
+(Or without a tunnel: `from google.colab import output; output.serve_kernel_port_as_iframe(7860)`.)
+
+**CPU expectations (24 GB RAM, no CUDA):** the device/dtype choice is logged and shown in the header. Without bf16
+hardware the 4B model runs in fp32 (~16 GB RAM); allow several minutes to load. Prompts are ~300-700 tokens, so expect
+roughly 1-3 minutes per criterion on a laptop CPU (a reasoned estimate, not measured); a 12-criterion screening can take
+10-30 minutes. The UI shows progress, a time estimate after the first criterion, and a Cancel button. The untuned
+0.6B model is much faster but low quality ("fast demo only"). Loading both models in fp32 needs ~18.5 GB RAM.
+CPU numerics (fp32/bf16) can differ slightly from the Colab fp16 results.
+Reports are saved automatically to `outputs/reports/` (git-ignored). See `docs/app_notes.md` for the workflow and
+the screenshot checklist.
+
 ## Model Weights Download
 
 ## Reproducibility

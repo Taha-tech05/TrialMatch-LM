@@ -1,1 +1,43 @@
-# Browser app settings (placeholder)
+# Browser app settings. Paths are relative to the project root.
+server:
+  host: 127.0.0.1
+  port: 7860
+
+# Input limits enforced by trialmatch.app.validation (messages shown inline in the UI).
+limits:
+  max_sentences: 40
+  max_note_chars: 3000
+  max_criteria: 40
+  max_criterion_chars: 1500
+
+real:
+  # Model source, first match wins: --merged-dir, env TRIALMATCH_MERGED_DIR, merged_dir below,
+  # the default merged location from configs/inference.yaml (only if it exists),
+  # then base + LoRA adapter (env TRIALMATCH_ADAPTER, then `adapter`, then `adapter_hub_id`: local dir or Hub id).
+  # If none of these exist, real mode is unavailable (auto falls back to demo). Nothing is downloaded silently.
+  merged_dir: null
+  adapter: null
+  adapter_hub_id: null           # e.g. "<user>/trialmatch-qwen3-4b-lora"
+  small_model: Qwen/Qwen3-0.6B   # untuned; selectable for screening and used as the speculative draft
+  speculative_k: 4
+  criterion_timeout_s: 900       # one criterion taking longer is recorded as "error" and the run continues
+  cpu_allow_bf16: true           # use bf16 on CPU only when the CPU reports hardware support; otherwise fp32
+
+demo:
+  # Cached REAL validation predictions (first existing file wins). Never the test split.
+  predictions:
+    - results/eval/finetuned_merged_val_predictions.jsonl
+    - results/eval/finetuned_val_predictions.jsonl
+
+# Official benchmark files shown in the Inference Lab (measured on Colab T4). Edit here when new runs replace them.
+benchmarks:
+  kv_cache: results/benchmarks/kv_cache_20261107_192136.json
+  speculative: results/benchmarks/speculative_20261108_113154.json
+  attention: null                # e.g. results/benchmarks/attention_<stamp>.json (not committed yet)
+
+reports_dir: outputs/reports
+
+lab:
+  default_new_tokens: 24
+  max_new_tokens: 128
+  attention_head_dim: 16

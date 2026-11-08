@@ -1,1 +1,0 @@
-"""Browser application frontend."""

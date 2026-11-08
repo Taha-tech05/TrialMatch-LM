@@ -1,0 +1,9 @@
+# Browser app (src/trialmatch/app). Core ML deps (torch, transformers, peft) stay in requirements-gpu.txt.
+# Demo mode additionally needs the base requirements.txt (pandas, pyarrow, pyyaml) and the processed val data.
+fastapi
+uvicorn
+pydantic
+# Peak-memory (RSS) readout in the live Inference Lab benchmark on CPU; optional but recommended
+psutil
+# TestClient (tests only)
+httpx

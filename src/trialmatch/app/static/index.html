@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrialMatch Screening Prototype</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="disclaimer" role="note">Educational Prototype Notice: this is a research screening prototype, not a clinical enrollment decision or diagnostic tool.</div>
+
+<header id="topbar">
+  <div class="brand">TrialMatch <span class="muted">screening prototype</span></div>
+  <nav role="tablist" aria-label="Views">
+    <button role="tab" id="tab-screen" aria-selected="true" aria-controls="view-screen" class="toptab active">Clinical Screening Workspace</button>
+    <button role="tab" id="tab-lab" aria-selected="false" aria-controls="view-lab" class="toptab">Inference Lab</button>
+  </nav>
+  <div id="status-cluster">
+    <span id="mode-badge" class="mode-badge mode-loading">STARTING</span>
+    <span id="model-info" class="mono small">…</span>
+    <button id="theme-btn" class="btn ghost" title="Toggle light / dark theme" aria-label="Toggle theme">Theme</button>
+  </div>
+</header>
+<div id="banner" class="banner" hidden role="status"></div>
+
+<main>
+<!-- ===================================================== View 1 -->
+<section id="view-screen" role="tabpanel" aria-labelledby="tab-screen">
+  <div class="toolbar">
+    <label>Model <select id="model-sel" aria-label="Model"></select></label>
+    <label>Engine <select id="engine-sel" aria-label="Engine"></select></label>
+    <button id="run-btn" class="btn primary" disabled>Run screening</button>
+    <button id="cancel-btn" class="btn" hidden>Cancel</button>
+    <button id="reset-btn" class="btn">Reset</button>
+    <details id="export-menu" class="menu">
+      <summary class="btn">Export ▾</summary>
+      <div class="menu-body">
+        <a id="exp-json" class="disabled" href="#" download>JSON (full data)</a>
+        <a id="exp-html" class="disabled" href="#" target="_blank" rel="noopener">HTML report</a>
+        <a id="exp-md" class="disabled" href="#" download>Markdown</a>
+        <a id="exp-print" class="disabled" href="#" target="_blank" rel="noopener">Print / Save as PDF</a>
+      </div>
+    </details>
+    <span id="engine-warn" class="warn small"></span>
+  </div>
+  <div id="progress" hidden aria-live="polite">
+    <div class="bar"><div id="bar-fill"></div></div>
+    <div id="progress-text" class="small mono"></div>
+  </div>
+  <div id="alerts" aria-live="polite"></div>
+
+  <div class="split">
+    <section class="pane" id="left-pane" aria-label="Patient note">
+      <h2>Patient note</h2>
+      <div class="row">
+        <label>Load example <select id="note-example"><option value="">Select a VAL note…</option></select></label>
+        <label class="btn small-btn">Open .txt <input type="file" id="note-file" accept=".txt,text/plain" hidden></label>
+      </div>
+      <details id="paste-note">
+        <summary>Paste your own note</summary>
+        <textarea id="note-text" rows="6" placeholder="Paste free text, or a note already numbered like '0. First sentence.'"></textarea>
+        <button id="note-use" class="btn">Number &amp; use this note</button>
+      </details>
+      <div id="note-info" class="small muted"></div>
+      <div id="sentences" class="sentences" aria-label="Numbered sentences"><p class="muted">No note loaded.</p></div>
+    </section>
+
+    <section class="pane" id="right-pane" aria-label="Criteria and summary">
+      <div class="subtabs" role="tablist">
+        <button role="tab" id="rt-criteria" class="subtab active" aria-selected="true">Criteria</button>
+        <button role="tab" id="rt-summary" class="subtab" aria-selected="false">Summary</button>
+      </div>
+      <div id="rp-criteria">
+        <details id="criteria-input" open>
+          <summary>Criteria to screen (<span id="crit-count">0</span>)</summary>
+          <div class="row">
+            <label>Example trial <select id="trial-example"><option value="">Select a VAL trial…</option></select></label>
+            <label class="btn small-btn">Open .txt <input type="file" id="crit-file" accept=".txt,text/plain" hidden></label>
+          </div>
+          <textarea id="crit-text" rows="6" placeholder="Inclusion Criteria:&#10;  - Age 18 or older&#10;Exclusion Criteria:&#10;  - Pregnant"></textarea>
+          <div class="row">
+            <button id="crit-parse" class="btn">Parse criteria</button>
+            <button id="crit-add" class="btn">+ Add criterion</button>
+          </div>
+          <div id="crit-rows"></div>
+        </details>
+        <h3 id="results-title" hidden>Results</h3>
+        <div id="cards"></div>
+      </div>
+      <div id="rp-summary" hidden><div id="summary"><p class="muted">Run a screening to see the preliminary outcome.</p></div></div>
+    </section>
+  </div>
+</section>
+
+<!-- ===================================================== View 2 -->
+<section id="view-lab" role="tabpanel" aria-labelledby="tab-lab" hidden>
+  <div id="lab-alerts" aria-live="polite"></div>
+
+  <div class="card-box saved">
+    <h2>Saved benchmark results <span class="tag tag-saved">static data</span></h2>
+    <div id="saved-root"><p class="muted">Loading…</p></div>
+  </div>
+
+  <div class="card-box live">
+    <h2>Live mini-benchmark &amp; token stream <span class="tag tag-live">live on this machine</span></h2>
+    <p class="small muted">Runs the selected engines one after another on the loaded model (not in parallel, so timings are not distorted). On CPU the 4B model is slow: keep outputs short or use the 0.6B model.</p>
+    <div class="row wrap">
+      <fieldset class="inline"><legend>Engines</legend>
+        <label><input type="checkbox" name="eng" value="plain"> <span class="dot c-plain"></span>Plain (no cache)</label>
+        <label><input type="checkbox" name="eng" value="kv" checked> <span class="dot c-kv"></span>KV-cached</label>
+        <label><input type="checkbox" name="eng" value="speculative"> <span class="dot c-spec"></span>Speculative (draft + target)</label>
+      </fieldset>
+      <label>Model <select id="lab-model"><option value="merged">Merged 4B</option><option value="small">Qwen3-0.6B (fast on CPU)</option></select></label>
+      <label>Prompt <select id="lab-prompt-src"><option value="val">A VAL prompt</option><option value="current">Current note + first criterion</option></select></label>
+      <label id="lab-val-wrap"><select id="lab-val" aria-label="VAL prompt"></select></label>
+      <label>Output tokens <input type="number" id="lab-n" min="1" max="128" value="24"></label>
+      <label>k <input type="number" id="lab-k" min="1" max="8" value="4"></label>
+    </div>
+    <div class="row">
+      <button id="bench-btn" class="btn primary">Run live benchmark</button>
+      <button id="stream-btn" class="btn ai">Stream tokens</button>
+      <button id="lab-cancel" class="btn" hidden>Cancel</button>
+      <span id="lab-status" class="small muted"></span>
+    </div>
+    <div id="stream-legend" class="small" hidden>
+      <span class="tok tok-target">target</span> <span class="tok tok-accepted">accepted (draft)</span>
+      <span class="tok tok-corrected">corrected</span> <span class="tok tok-bonus">bonus</span>
+    </div>
+    <div id="stream-panes" class="panes"></div>
+    <div id="live-results"></div>
+  </div>
+
+  <div class="card-box">
+    <h2>Tiled attention visualizer <span class="tag tag-live">computed live, CPU</span></h2>
+    <div class="row wrap">
+      <label>Sequence <input type="range" id="at-seq" min="16" max="64" value="32"> <span id="at-seq-v" class="mono">32</span></label>
+      <label>Block size <select id="at-block"><option>2</option><option>4</option><option selected>8</option><option>16</option></select></label>
+      <label>Query row <input type="number" id="at-row" min="0" max="63" value="20"></label>
+      <label><input type="checkbox" id="at-causal" checked> Causal mask</label>
+    </div>
+    <div id="at-out"></div>
+  </div>
+</section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

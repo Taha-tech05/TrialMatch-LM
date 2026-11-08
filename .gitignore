@@ -65,3 +65,6 @@ desktop.ini
 
 # Merged fp16 model (~8 GB, never committed)
 merged/
+
+# App reports (may contain user-pasted text)
+outputs/
