@@ -6,7 +6,7 @@
     "device": "cuda",
     "python": "3.13.16",
     "platform": "Linux-6.6.159+-x86_64-with-glibc2.39",
-    "git_commit": "54c26b890f98668649058499b501afdff45a4ce6",
+    "git_commit": "0fa44df1ea55acd91bd9e5f4cc5817e15cccd289",
     "cuda_available": true,
     "model_class": "Qwen3ForCausalLM",
     "n_params": 4022468096,
@@ -33,6 +33,7 @@
     "warmup": 1,
     "val_prompts": 16,
     "quick": false,
+    "resume": true,
     "out_dir": null
   },
   "all_tokens_equal": false,
