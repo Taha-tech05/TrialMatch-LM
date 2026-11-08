@@ -1,0 +1,59 @@
+{
+  "started": "2026-11-07T19:24:22",
+  "quick": true,
+  "trialmatch_out": "/content/drive/MyDrive/trialmatch",
+  "merged_dir": "/content/drive/MyDrive/trialmatch/merged/qwen3-4b_merged_fp16",
+  "steps": [
+    {
+      "step": "env",
+      "log": "/content/drive/MyDrive/trialmatch/logs/env.log",
+      "exit_code": 0,
+      "status": "ok",
+      "seconds": 31.9
+    },
+    {
+      "step": "merge",
+      "log": "/content/drive/MyDrive/trialmatch/logs/merge.log",
+      "status": "skipped",
+      "note": "merged model already exists: /content/drive/MyDrive/trialmatch/merged/qwen3-4b_merged_fp16",
+      "seconds": 0.0
+    },
+    {
+      "step": "eval_merged_val",
+      "log": "/content/drive/MyDrive/trialmatch/logs/eval_merged_val.log",
+      "exit_code": 0,
+      "status": "ok",
+      "seconds": 294.7
+    },
+    {
+      "step": "compute_metrics",
+      "log": "/content/drive/MyDrive/trialmatch/logs/compute_metrics.log",
+      "exit_code": 0,
+      "status": "ok",
+      "seconds": 4.8
+    },
+    {
+      "step": "bench_kv_cache",
+      "log": "/content/drive/MyDrive/trialmatch/logs/bench_kv_cache.log",
+      "exit_code": 1,
+      "status": "mismatch",
+      "note": "benchmark reported a mismatch (exit 1); continuing",
+      "seconds": 16.2
+    },
+    {
+      "step": "bench_attention",
+      "log": "/content/drive/MyDrive/trialmatch/logs/bench_attention.log",
+      "exit_code": 0,
+      "status": "ok",
+      "seconds": 7.1
+    },
+    {
+      "step": "bench_speculative",
+      "log": "/content/drive/MyDrive/trialmatch/logs/bench_speculative.log",
+      "status": "skipped",
+      "note": "placeholder: speculative decoding benchmark not implemented yet",
+      "seconds": 0.0
+    }
+  ],
+  "finished": "2026-11-07T19:30:17"
+}
