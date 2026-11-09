@@ -6,7 +6,24 @@ A Transformer-based system that matches patient descriptions to clinical trial i
 
 ## Overview
 
+TrialMatch Transformer reads a short patient note (sentences numbered from 0) and one inclusion or exclusion criterion of a clinical trial, and answers with a criterion-level label plus the numbers of the supporting note sentences. The data are the TrialGPT criterion annotations (1,015 rows, 53 patients, 103 trials; `docs/data_inspection.md`), split by patient 37/8/8 with seed 42.
+
+What is in the repository:
+
+- **Fine-tuning:** QLoRA of `Qwen/Qwen3-4B` (LoRA r=16, alpha=32, 3 epochs; `configs/train.yaml`).
+- **Evaluation:** accuracy, per-class P/R/F1, two macro-F1 variants, evidence P/R/F1, a majority baseline and error analysis (`results/metrics/`, `results/error_analysis/`, `docs/error_analysis.md`).
+- **Inference internals written by hand and tested:** a KV-cache decoder, tiled online-softmax attention and greedy speculative decoding, with T4 benchmarks (`results/benchmarks/`).
+- **Browser app:** screening workspace and Inference Lab (see "Running the App").
+- **Paper draft:** `report/main.tex` (IEEEtran).
+
+Headline numbers (test split, 206 rows, 8 patients, evaluated once with the merged fp16 model; `results/metrics/test_comparison.md`): accuracy 0.767 and macro-F1 over present classes 0.726 for the fine-tuned model, against 0.665 / 0.523 for the base model and 0.626 / 0.272 for the majority baseline. The test split has no gold `excluded` rows, so macro-F1 over the full label set (0.605) is also reported. Speculative decoding with an untuned Qwen3-0.6B draft gave **no** speed-up on real validation prompts (`results/benchmarks/speculative_20261108_113154.json`); details in `docs/speculative_notes.md`.
+
 ## Setup
+
+- **Light setup (data, metrics, tests, demo-mode app; no GPU):** `pip install -r requirements.txt` (add `-r requirements-app.txt` for the app).
+- **GPU setup (training, merging, benchmarks, real-mode app):** `pip install -r requirements.txt -r requirements-gpu.txt && pip install -e .`. Training and all benchmarks were run on a Colab Tesla T4 with Python 3.13.16, torch 2.14.1+cu130, transformers 5.22.1, peft 0.21.2, bitsandbytes 0.50.2 (`results/logs/env_qwen3-4b_qlora_4bit.json`). The cache code relies on the transformers 5.x `DynamicCache` API (with a fallback, see `src/trialmatch/inference/speculative/cache_sync.py`). Minimum local Python version: TODO(verify).
+- **Colab:** `notebooks/colab_runner.ipynb` runs the setup cells; set `TRIALMATCH_OUT` (e.g. a Google Drive folder) so checkpoints, the merged model and results survive a disconnect.
+- **Hugging Face:** the dataset download needs network access; the gated Llama repositories were inaccessible and are skipped (`docs/model_facts.md`).
 
 ## Data Preparation
 
@@ -232,8 +249,6 @@ draft vs verify time, peak memory (both models loaded), token-equality flag (a m
 the logit gap), plus the environment (GPU, versions, dtype, git commit). Exit code 1 if any output differs from plain greedy.
 Test split is never read. Notes to fill in: `docs/speculative_notes.md`.
 
-## KV-Cache/Attention/Speculative Benchmarks
-
 ## Running the App
 
 Browser app: FastAPI backend + one static page (no npm, no CDN, works offline). Two views: **Clinical Screening
@@ -272,8 +287,122 @@ the screenshot checklist.
 
 ## Model Weights Download
 
+The adapter (LoRA weights) and the merged fp16 model (~8 GB) are **not committed**. Placeholder Hub id: `<YOUR_HF_USERNAME>/trialmatch-qwen3-4b-lora` (replace it with the real repository once the adapter is uploaded: TODO(verify) that it has been uploaded and whether it holds the adapter or the merged model).
+
+Load the adapter on the base model, build the prompt with the project's formatter, decode greedily and parse with the project parser:
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+
+from trialmatch.model.prompt import build_prompt
+from trialmatch.model.chat import chat_prompt_text
+from trialmatch.model.parse import parse_output
+
+HUB_ID = "<YOUR_HF_USERNAME>/trialmatch-qwen3-4b-lora"   # placeholder
+tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B")
+base = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-4B", torch_dtype=torch.float16, device_map="auto")
+model = PeftModel.from_pretrained(base, HUB_ID)
+# optional: fold the adapter into fp16 weights, as used for all benchmarks (see "KV-Cache Benchmarks")
+# model = model.merge_and_unload()
+model.eval()
+
+note = "0. A 58-year-old woman presents with chest pain.\n1. ..."          # numbered sentences, starting at 0
+prompt = build_prompt(note=note, criterion_type="exclusion", criterion_text="Unstable angina")
+text = chat_prompt_text(tok, prompt)
+ids = tok(text, return_tensors="pt").to(model.device)
+out = model.generate(**ids, max_new_tokens=64, do_sample=False)
+answer = tok.decode(out[0, ids["input_ids"].shape[1]:], skip_special_tokens=True)
+print(parse_output(answer, "exclusion", n_sentences=2))                      # status 'ok' or 'invalid', never remapped
+```
+
+The adapter was trained on a 4-bit (NF4) base. Loading it on an fp16 base, or merging it, is a slightly different model: on validation the merged model scored 0.733 accuracy against 0.748 for the 4-bit-base run (`results/eval/finetuned_merged_val_summary.json`, `results/eval/finetuned_val_summary.json`). The snippet was assembled from the project's function signatures and has not been run end to end: TODO(verify). This is an educational prototype, not a clinical tool.
+
 ## Reproducibility
+
+Seeds: split seed 42 (`configs/data.yaml`), training seed 42 (`configs/train.yaml`). The order below is reconstructed from the sections above and the script docstrings, not from a shell history; the exact flags of the one-time test run are not recorded in the repo: TODO(verify). `$OUT` is `$TRIALMATCH_OUT`; `$M` is `$OUT/merged/qwen3-4b_merged_fp16`.
+
+```bash
+# 0. install and test (CPU)
+pip install -r requirements.txt -r requirements-app.txt && pip install -e .
+python -m pytest tests
+
+# 1. data (CPU)
+python scripts/prepare_data.py
+python scripts/inspect_data.py
+python scripts/label_distribution.py
+python scripts/make_prompt_example.py
+
+# 2. model measurements (no weights downloaded)
+python scripts/model_facts.py
+python scripts/tokenizer_compat.py
+python scripts/memory_estimate.py
+python scripts/token_stats.py
+
+# 3. GPU (Colab T4): train
+pip install -r requirements-gpu.txt
+python scripts/smoke_test_train.py
+python scripts/train.py
+
+# 4. validation evaluation and metrics
+python scripts/evaluate.py --tag base
+python scripts/evaluate.py --adapter $OUT/checkpoints/qwen3-4b_qlora_4bit/adapter_final --tag finetuned
+python scripts/compute_metrics.py
+python scripts/export_errors.py
+
+# 5. merge, re-evaluate on val, benchmarks (GPU)
+python scripts/merge_adapter.py --adapter $OUT/checkpoints/qwen3-4b_qlora_4bit/adapter_final --save
+python scripts/evaluate.py --merged --merged-dir $M --tag finetuned_merged
+python scripts/compute_metrics.py
+python scripts/bench_kv_cache.py --merged-dir $M --mode both
+python scripts/bench_attention.py
+python scripts/bench_speculative.py --merged-dir $M
+#   (or: python scripts/colab_all.py, which runs the merge, the merged val evaluation and the three benchmarks in one go)
+
+# 6. final test evaluation: ONCE, after all decisions are frozen (refuses a second run without --force)
+python scripts/evaluate.py --tag base --split test --confirm-final                                      # TODO(verify) flags
+python scripts/evaluate.py --merged --merged-dir $M --tag finetuned_merged --split test --confirm-final # TODO(verify) flags
+python scripts/compute_metrics.py --split test --confirm-final
+python scripts/export_errors.py --split test --confirm-final
+
+# 7. app
+python scripts/launch_app.py
+```
+
+Benchmark files used by the app and the paper: `kv_cache_20261107_192136`, `attention_20261107_193238`, `speculative_20261108_113154` (`configs/app.yaml`). The paper is built with `cd report && pdflatex main && bibtex main && pdflatex main && pdflatex main`.
 
 ## Repository Structure
 
+```text
+trialmatch-transformer/
+  README.md  CLAUDE.md  LICENSE  pyproject.toml
+  requirements.txt  requirements-app.txt  requirements-gpu.txt
+  configs/       data.yaml  train.yaml  inference.yaml  app.yaml
+  data/          raw/  processed/  splits/   (splits/split_manifest.json is git-tracked)
+  src/trialmatch/
+    data/        loading, preprocessing, patient-grouped split, leakage checks
+    model/       prompt, schema, output parser, chat template, loading/merging, measurement
+    training/    LoRA/QLoRA training code and config validation
+    evaluation/  generation for eval, classification/evidence metrics, baselines, error analysis, reporting
+    inference/
+      kv_cache/      reference_decode.py, cached_decode.py, cache_utils.py, compare.py
+      attention/     reference.py, tiled.py, sdpa_backends.py
+      speculative/   speculative_decode.py, cache_sync.py, stats.py, loading.py, hf_assisted_reference.py
+      benchmarks/    kv_cache_bench.py, attention_bench.py, speculative_bench.py, timing/memory helpers
+    app/         FastAPI backend, real/demo backends, jobs, report export, static UI (app/static)
+  scripts/       prepare_data, inspect_data, train, evaluate, compute_metrics, export_errors, merge_adapter,
+                 bench_kv_cache, bench_attention, bench_speculative, colab_all, launch_app, ...
+  tests/         CPU tests (tiny random models; no downloads)
+  notebooks/     colab_runner.ipynb
+  results/       eval/ (predictions), metrics/, figures/, benchmarks/, logs/, error_analysis/
+  docs/          decisions.md, research_notes.md, model_comparison.md, kv_cache_notes.md, attention_notes.md,
+                 speculative_notes.md, error_analysis.md, ai_use_log.md, app_notes.md, generated tables
+  report/        main.tex (IEEEtran), references.bib, figures/
+  demo/          screenshots and demo video notes (README.md)
+  outputs/       app reports (git-ignored)    checkpoints/   adapters (not committed)
+```
+
 ## AI Use Acknowledgment
+
+This project was developed with AI assistance: Claude Code wrote and tested most of the code and drafted the notes in `docs/`, the error analysis, the paper text and this README from the repository's own files; a Claude chat assistant was also used (what it was used for is not recorded in the repo: TODO(verify)). Each session, what the author verified and what was not exercised (GPU runs, the real 4B model on CPU, the UI in a browser) is listed in `docs/ai_use_log.md` and in the appendix of `report/main.tex`. The author remains responsible for the content and must review the drafted prose, and every reference in the paper is marked VERIFY.
