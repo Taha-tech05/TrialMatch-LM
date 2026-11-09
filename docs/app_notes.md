@@ -35,9 +35,8 @@ Anything else returns "cannot predict in demo mode".
 ## Speculative engine, draft model, empty states
 - Speculative needs the merged 4B as the *active* model and the 0.6B draft loaded. Use `--load-draft` (or `real.load_draft: true`);
   the engine hint under the toolbar states exactly what is missing.
-- Saved benchmarks come from `benchmarks.*` in `configs/app.yaml` (kv_cache_20261107_192136, speculative_20261108_113154).
-  `benchmarks.attention` is still unset because no attention benchmark file exists in `results/benchmarks/`; the Lab shows an empty
-  state saying how to produce it. A missing file also yields an empty state with a message, never an error.
+- Saved benchmarks come from `benchmarks.*` in `configs/app.yaml` (kv_cache_20261107_192136, speculative_20261108_113154, attention_20261107_193238).
+  A missing or unset file yields an empty state with a message, never an error.
 - If `data/processed/val.parquet` is missing the example dropdowns show "Run python scripts/prepare_data.py".
 - Sentence splitter: a full stop after a unit ("mg/dL.", "mmHg.", "kg.") followed by a capitalised word starts a new sentence;
   titles ("Dr."), decimals ("7.5") and a unit dot followed by lower-case/number ("7.5 mg. daily") do not.

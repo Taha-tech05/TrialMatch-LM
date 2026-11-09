@@ -101,7 +101,11 @@ def _attn(data: dict, rel: str) -> dict:
             "peak_mem_mib": r["peak_mem_bytes"] / MIB if "peak_mem_bytes" in r else None,
             "max_abs_err": r.get("max_abs_err"), "within_tolerance": r.get("within_tolerance")}
            for r in data.get("results", [])]
-    return {"available": True, "provenance": _provenance(data, rel), "results": res,
+    prov = _provenance(data, rel)
+    a = data.get("args", {})
+    prov["label"] = prov["label"].replace(
+        "model unknown", f"synthetic Q/K/V tensors ({a.get('heads', '?')} heads, head_dim {a.get('head_dim', '?')}; no model weights)")
+    return {"available": True, "provenance": prov, "results": res,
             "mismatches": data.get("mismatches")}
 
 

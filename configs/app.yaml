@@ -34,8 +34,7 @@ demo:
 benchmarks:
   kv_cache: results/benchmarks/kv_cache_20261107_192136.json
   speculative: results/benchmarks/speculative_20261108_113154.json
-  attention: null                # set to results/benchmarks/attention_<stamp>.json once the full attention benchmark exists
-                                 # (none is committed yet; the Lab then shows an empty state with this instruction)
+  attention: results/benchmarks/attention_20261107_193238.json   # latest full run (the quick run 193016 is not used)
 
 reports_dir: outputs/reports
 

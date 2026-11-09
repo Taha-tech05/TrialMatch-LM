@@ -1,0 +1,330 @@
+{
+  "environment": {
+    "torch": "2.14.1+cu130",
+    "dtype": "torch.float16",
+    "device": "cuda",
+    "python": "3.13.16",
+    "platform": "Linux-6.6.159+-x86_64-with-glibc2.39",
+    "git_commit": "54c26b890f98668649058499b501afdff45a4ce6",
+    "cuda_available": true,
+    "gpu": "Tesla T4",
+    "gpu_total_gib": 14.56,
+    "cuda": "13.0"
+  },
+  "args": {
+    "seq_lens": [
+      128,
+      256,
+      512
+    ],
+    "block_sizes": [
+      64,
+      128
+    ],
+    "heads": 32,
+    "kv_heads": 8,
+    "head_dim": 128,
+    "repeats": 2,
+    "warmup": 1,
+    "dtype": "auto",
+    "quick": true,
+    "out_dir": null
+  },
+  "mismatches": 0,
+  "results": [
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0019586910002544755,
+        "std": 6.157486329899345e-06,
+        "min": 0.0019543369999155402,
+        "max": 0.001963045000593411,
+        "median": 0.0019586910002544755
+      },
+      "peak_mem_bytes": 15779840,
+      "max_abs_err": 0.0009214878082275391,
+      "mean_abs_err": 3.300106982351281e-05,
+      "seq_len": 128,
+      "impl": "reference",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0045035914990876336,
+        "std": 0.00016347813821693982,
+        "min": 0.004387994998978684,
+        "max": 0.004619187999196583,
+        "median": 0.0045035914990876336
+      },
+      "peak_mem_bytes": 9479168,
+      "max_abs_err": 0.0009214878082275391,
+      "mean_abs_err": 3.3001098927343264e-05,
+      "seq_len": 128,
+      "impl": "tiled_64",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0026796070005730144,
+        "std": 0.0006368316794552725,
+        "min": 0.0022292990015557734,
+        "max": 0.0031299149995902553,
+        "median": 0.0026796070005730144
+      },
+      "peak_mem_bytes": 20006912,
+      "max_abs_err": 0.0009214878082275391,
+      "mean_abs_err": 3.300109528936446e-05,
+      "seq_len": 128,
+      "impl": "tiled_128",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0020965415005775867,
+        "std": 0.00018332096916164175,
+        "min": 0.0019669140001497,
+        "max": 0.0022261690010054735,
+        "median": 0.0020965415005775867
+      },
+      "peak_mem_bytes": 16842752,
+      "max_abs_err": 0.0009214878082275391,
+      "mean_abs_err": 3.300135722383857e-05,
+      "seq_len": 128,
+      "impl": "sdpa_math",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0010939325002254918,
+        "std": 5.0496616645670424e-05,
+        "min": 0.0010582260001683608,
+        "max": 0.0011296390002826229,
+        "median": 0.0010939325002254918
+      },
+      "peak_mem_bytes": 3146752,
+      "max_abs_err": 0.0012044906616210938,
+      "mean_abs_err": 4.5203774789115414e-05,
+      "seq_len": 128,
+      "impl": "sdpa_efficient",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "unavailable",
+      "error": "RuntimeError: No available kernel. Aborting execution.",
+      "seq_len": 128,
+      "impl": "sdpa_flash",
+      "tolerance": 0.005,
+      "within_tolerance": null
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0022283669995886157,
+        "std": 2.1183505372079244e-05,
+        "min": 0.002213387999290717,
+        "max": 0.0022433459998865146,
+        "median": 0.0022283669995886157
+      },
+      "peak_mem_bytes": 44175360,
+      "max_abs_err": 0.0009620189666748047,
+      "mean_abs_err": 2.4571378162363544e-05,
+      "seq_len": 256,
+      "impl": "reference",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.012934436000250571,
+        "std": 7.516545081917182e-05,
+        "min": 0.01288128600026539,
+        "max": 0.012987586000235751,
+        "median": 0.012934436000250571
+      },
+      "peak_mem_bytes": 10527744,
+      "max_abs_err": 0.0009620189666748047,
+      "mean_abs_err": 2.4571414542151615e-05,
+      "seq_len": 256,
+      "impl": "tiled_64",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.004991175499526435,
+        "std": 6.141010112246303e-05,
+        "min": 0.004947752000589389,
+        "max": 0.00503459899846348,
+        "median": 0.004991175499526435
+      },
+      "peak_mem_bytes": 21055488,
+      "max_abs_err": 0.0009620189666748047,
+      "mean_abs_err": 2.457141636114102e-05,
+      "seq_len": 256,
+      "impl": "tiled_128",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0023755800002618344,
+        "std": 0.0003213828612026726,
+        "min": 0.0021483279997482896,
+        "max": 0.002602832000775379,
+        "median": 0.0023755800002618344
+      },
+      "peak_mem_bytes": 40116736,
+      "max_abs_err": 0.0009620189666748047,
+      "mean_abs_err": 2.4571649191784672e-05,
+      "seq_len": 256,
+      "impl": "sdpa_math",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0007583200003864476,
+        "std": 5.1610310588930126e-05,
+        "min": 0.0007218259997898713,
+        "max": 0.000794814000983024,
+        "median": 0.0007583200003864476
+      },
+      "peak_mem_bytes": 6292480,
+      "max_abs_err": 0.0011522769927978516,
+      "mean_abs_err": 3.4670538298087195e-05,
+      "seq_len": 256,
+      "impl": "sdpa_efficient",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "unavailable",
+      "error": "RuntimeError: No available kernel. Aborting execution.",
+      "seq_len": 256,
+      "impl": "sdpa_flash",
+      "tolerance": 0.005,
+      "within_tolerance": null
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.004948537999553082,
+        "std": 4.1225738963407276e-05,
+        "min": 0.00491938699997263,
+        "max": 0.004977688999133534,
+        "median": 0.004948537999553082
+      },
+      "peak_mem_bytes": 138813440,
+      "max_abs_err": 0.0009751319885253906,
+      "mean_abs_err": 1.801593134587165e-05,
+      "seq_len": 512,
+      "impl": "reference",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.023531498500233283,
+        "std": 0.0005184825120871458,
+        "min": 0.023164876000009826,
+        "max": 0.02389812100045674,
+        "median": 0.023531498500233283
+      },
+      "peak_mem_bytes": 12624896,
+      "max_abs_err": 0.0009751319885253906,
+      "mean_abs_err": 1.801597682060674e-05,
+      "seq_len": 512,
+      "impl": "tiled_64",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.007980273000612215,
+        "std": 0.00015096305420343712,
+        "min": 0.007873526001276332,
+        "max": 0.008087019999948097,
+        "median": 0.007980273000612215
+      },
+      "peak_mem_bytes": 23152640,
+      "max_abs_err": 0.0009751319885253906,
+      "mean_abs_err": 1.8015980458585545e-05,
+      "seq_len": 512,
+      "impl": "tiled_128",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.004572822499540052,
+        "std": 4.955616363948142e-05,
+        "min": 0.004537781000180985,
+        "max": 0.00460786399889912,
+        "median": 0.004572822499540052
+      },
+      "peak_mem_bytes": 118505984,
+      "max_abs_err": 0.0009751319885253906,
+      "mean_abs_err": 1.8016164176515304e-05,
+      "seq_len": 512,
+      "impl": "sdpa_math",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "ok",
+      "time_s": {
+        "n": 2,
+        "mean": 0.0010881094985961681,
+        "std": 6.22063045845695e-05,
+        "min": 0.0010441229987918632,
+        "max": 0.001132095998400473,
+        "median": 0.0010881094985961681
+      },
+      "peak_mem_bytes": 12583936,
+      "max_abs_err": 0.0009751319885253906,
+      "mean_abs_err": 2.5961016945075244e-05,
+      "seq_len": 512,
+      "impl": "sdpa_efficient",
+      "tolerance": 0.005,
+      "within_tolerance": true
+    },
+    {
+      "status": "unavailable",
+      "error": "RuntimeError: No available kernel. Aborting execution.",
+      "seq_len": 512,
+      "impl": "sdpa_flash",
+      "tolerance": 0.005,
+      "within_tolerance": null
+    }
+  ]
+}
