@@ -1,10 +1,12 @@
-"""Export validation errors of the fine-tuned model for manual analysis. VALIDATION split only.
+"""Export errors of the fine-tuned model for manual analysis. Validation by default.
 
   python scripts/export_errors.py
+  python scripts/export_errors.py --split test --confirm-final   # FINAL: writes only test_finetuned_merged_errors.csv
 Writes results/error_analysis/: val_finetuned_errors.csv, val_finetuned_error_summary.csv,
 val_finetuned_candidate_errors.csv (12 rows covering distinct categories), and the two base-vs-finetuned
 disagreement files. No explanations are generated: the my_notes column is left blank.
 """
+import argparse
 import csv
 import sys
 from pathlib import Path
@@ -14,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from trialmatch.evaluation.error_analysis import (CSV_COLUMNS, category_counts, error_rows, export_row,
                                                   pick_candidates)
 from trialmatch.evaluation.evidence import row_prf
-from trialmatch.evaluation.val_data import load_joined
+from trialmatch.evaluation.val_data import check_metrics_split, load_joined
 from trialmatch.utils.common import resolve
 
 
@@ -33,7 +35,26 @@ def evid_f1(r: dict) -> float:
     return row_prf(set(r["gold_evidence"]), None if r["pred_evidence"] is None else set(r["pred_evidence"]))[2]
 
 
+def main_test(tag: str = "finetuned_merged"):
+    out = resolve("results/error_analysis")
+    out.mkdir(parents=True, exist_ok=True)
+    recs = load_joined(tag, "test", allow_test=True)
+    rows = error_rows(recs)
+    write_csv(out / f"test_{tag}_errors.csv", rows, CSV_COLUMNS)
+    counts = category_counts(rows, len(recs))
+    print(f"test rows: {len(recs)}; {tag} rows with any error (label or evidence): {len(rows)}")
+    for c in counts:
+        print(f"{c['category']:58s} {c['n_rows']:5d} {c['n_rows_as_primary']:8d} {c['pct_of_all_rows']:9.1f}")
+    print(f"wrote {out / f'test_{tag}_errors.csv'}")
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--split", choices=["val", "test"], default="val")
+    ap.add_argument("--confirm-final", action="store_true")
+    a = ap.parse_args()
+    if check_metrics_split(a.split, a.confirm_final):
+        return main_test()
     out = resolve("results/error_analysis")
     out.mkdir(parents=True, exist_ok=True)
     ft, base = load_joined("finetuned", "val"), load_joined("base", "val")

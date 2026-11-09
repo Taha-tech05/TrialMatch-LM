@@ -204,7 +204,19 @@ class RealBackend:
         return LoadedModel(key, model, tok, name, dev, str(dt).replace("torch.", ""), time.perf_counter() - t0, note)
 
     def start(self) -> None:
-        self.load_model("merged")
+        """Load the target (merged 4B) in a background thread; with real.load_draft also load the draft (0.6B)
+        in the SAME thread afterwards, so peak RAM is one load at a time and Speculative becomes available
+        once both are ready. A draft failure is recorded but never blocks the target."""
+        if not self.cfg["real"].get("load_draft"):
+            self.load_model("merged")
+            return
+        with self._state:
+            todo = [k for k in ("merged", "small") if k not in self.models and k not in self.loading]
+            self.loading.update(todo)
+            for k in todo:
+                self.errors.pop(k, None)
+        if todo:
+            threading.Thread(target=lambda: [self._load_thread(k) for k in todo], daemon=True, name="load-all").start()
 
     def load_model(self, key: str) -> bool:
         """Start loading `key` in a background thread (idempotent). Returns False if already loaded/loading."""
@@ -269,7 +281,14 @@ class RealBackend:
                            "device": m.device if m else None, "dtype": m.dtype if m else None,
                            "load_s": round(m.load_s, 1) if m else None})
         adapter = self.merge_info.get("adapter") or (self.source or {}).get("adapter")
-        return {"mode": "real", "phase": self.phase(), "model_key": self.active,
+        tgt, drf = self.models.get("merged"), self.models.get("small")
+        draft = {"loaded": drf is not None, "loading": "small" in self.loading, "error": self.errors.get("small"),
+                 "name": drf.name if drf else None, "device": drf.device if drf else None,
+                 "dtype": drf.dtype if drf else None, "requested": bool(self.cfg["real"].get("load_draft"))}
+        target = {"loaded": tgt is not None, "loading": "merged" in self.loading, "error": self.errors.get("merged"),
+                  "name": tgt.name if tgt else None, "device": tgt.device if tgt else None,
+                  "dtype": tgt.dtype if tgt else None}
+        return {"mode": "real", "target": target, "draft": draft, "phase": self.phase(), "model_key": self.active,
                 "model_name": lm.name if lm else None, "model_note": lm.note if lm else "",
                 "device": lm.device if lm else None, "dtype": lm.dtype if lm else None,
                 "message": self.errors.get(self.active) or self.runtime_note, "banner": None,
@@ -284,8 +303,17 @@ class RealBackend:
             if e == "speculative":
                 avail = spec_ok
                 if not spec_ok:
-                    reason = ("Needs the merged 4B as the active model AND the 0.6B draft loaded "
-                              "(load it from the model selector).")
+                    if not ready:
+                        reason = "Model not loaded yet."
+                    elif self.active != "merged":
+                        reason = "Speculative decoding needs the merged 4B as the active model (the 0.6B is only the draft)."
+                    elif "small" in self.loading:
+                        reason = "The 0.6B draft model is still loading."
+                    elif self.errors.get("small"):
+                        reason = "The 0.6B draft model failed to load: " + self.errors["small"][:160]
+                    else:
+                        reason = ("The 0.6B draft model is not loaded. Start with --load-draft (or set real.load_draft: true), "
+                                  "or select the 0.6B once in the model selector, then switch back to the merged 4B.")
                 warn = "On CPU speculative decoding may be slower than plain KV-cache decoding."
             out.append({"id": e, "label": ENGINE_LABELS[e], "available": avail, "reason": reason, "warning": warn})
         return out

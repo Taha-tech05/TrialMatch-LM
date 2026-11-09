@@ -8,17 +8,25 @@ _NUM_LINE = re.compile(r"^\s*(\d+)\s*\.\s+(.*\S)\s*$")
 # Tokens (lower-case, without the final dot) after which a full stop does NOT end a sentence.
 ABBREVIATIONS = {
     "dr", "mr", "mrs", "ms", "prof", "sr", "jr", "st", "vs", "etc", "approx", "no", "fig", "inc", "ltd", "dept",
-    "mg", "mcg", "ml", "kg", "g", "l", "dl", "mm", "cm", "hr", "hrs", "min", "sec", "mmhg", "yo", "y.o", "wk",
-    "e.g", "i.e", "a.m", "p.m", "cf", "ca", "pt", "pts", "hx", "dx", "tx", "rx", "sx", "w/", "ft", "lb", "lbs", "oz",
+    "yo", "y.o",
+    "e.g", "i.e", "a.m", "p.m", "cf", "ca", "pt", "pts", "hx", "dx", "tx", "rx", "sx", "w/",
 }
+# Unit tokens ("mg/dL.", "mmHg.", "kg."): a full stop after a unit ends the sentence when a capitalised word
+# follows; otherwise ("7.5 mg. daily", "5 mg. 2 tablets") it is treated as an abbreviation dot.
+UNITS = {"mg", "mcg", "ug", "ml", "kg", "g", "l", "dl", "mm", "cm", "hr", "hrs", "min", "sec", "mmhg", "wk", "ft", "lb",
+         "lbs", "oz", "mol", "mmol", "iu", "meq", "bpm", "km", "m", "s"}
+_CAP_WORD = re.compile(r"[\"'(\[]?[A-Z]")
 _BOUNDARY = re.compile(r"([.!?]+[\"')\]]*)(\s+)(?=[\"'(\[]?[A-Z0-9])")
 
 
-def _is_abbrev(before: str) -> bool:
+def _is_abbrev(before: str, after: str = "") -> bool:
     m = re.search(r"([A-Za-z][A-Za-z.]*)$", before)
     if not m:
         return False
     tok = m.group(1).lower().rstrip(".")
+    pre = before[:m.start(1)]
+    if tok in UNITS and (len(tok) > 1 or re.search(r"\d\s*$", pre)):   # one-letter units only right after a number
+        return not _CAP_WORD.match(after)
     if tok in ABBREVIATIONS:
         return True
     # single capital initial ("J. Smith") or dotted forms like "U.S"
@@ -36,7 +44,7 @@ def split_sentences(text: str) -> list[str]:
         for m in _BOUNDARY.finditer(para):
             end_punct = m.group(1)
             before = para[start:m.start()]
-            if end_punct.startswith(".") and _is_abbrev(before):
+            if end_punct.startswith(".") and _is_abbrev(before, para[m.end():]):
                 continue
             out.append(para[start:m.start() + len(end_punct)].strip())
             start = m.end()

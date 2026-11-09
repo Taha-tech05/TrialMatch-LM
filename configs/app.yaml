@@ -19,6 +19,7 @@ real:
   adapter: null
   adapter_hub_id: null           # e.g. "<user>/trialmatch-qwen3-4b-lora"
   small_model: Qwen/Qwen3-0.6B   # untuned; selectable for screening and used as the speculative draft
+  load_draft: false              # true (or --load-draft): also load small_model as the speculative draft at startup
   speculative_k: 4
   criterion_timeout_s: 900       # one criterion taking longer is recorded as "error" and the run continues
   cpu_allow_bf16: true           # use bf16 on CPU only when the CPU reports hardware support; otherwise fp32
@@ -33,7 +34,8 @@ demo:
 benchmarks:
   kv_cache: results/benchmarks/kv_cache_20261107_192136.json
   speculative: results/benchmarks/speculative_20261108_113154.json
-  attention: null                # e.g. results/benchmarks/attention_<stamp>.json (not committed yet)
+  attention: null                # set to results/benchmarks/attention_<stamp>.json once the full attention benchmark exists
+                                 # (none is committed yet; the Lab then shows an empty state with this instruction)
 
 reports_dir: outputs/reports
 

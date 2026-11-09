@@ -211,3 +211,120 @@ def test_real_backend_with_tiny_model_all_engines():
     ids = be.encode(tgt, "hello world")
     toks = {e: run_engine(e, tgt, drf, ids, max_new=10, k=3)["tokens"] for e in ("plain", "kv", "speculative")}
     assert toks["plain"] == toks["kv"] == toks["speculative"]
+
+
+# ---------------------------------------------------------------- draft loading (fake loader, no weights)
+def _fake_loaders():
+    from trialmatch.app.backends import LoadedModel
+    made = []
+
+    def loader(key):
+        made.append(key)
+        if key == "small" and loader.fail_draft:
+            raise RuntimeError("draft boom")
+        return LoadedModel(key, object(), object(), "Target-4B" if key == "merged" else "Draft-0.6B", "cpu", "float32", 0.0)
+    loader.fail_draft = False
+    return loader, made
+
+
+def _wait_for(pred, timeout=5):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if pred():
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def _spec(be):
+    return next(e for e in be.engines() if e["id"] == "speculative")
+
+
+def test_load_draft_default_off_then_on():
+    from trialmatch.app.backends import RealBackend
+    cfg = load_app_config()
+    assert cfg["real"]["load_draft"] is False
+    loader, made = _fake_loaders()
+    be = RealBackend(cfg, source={"kind": "merged", "path": "x"}, loader=loader)
+    be.start()
+    assert _wait_for(be.ready) and made == ["merged"]
+    s = _spec(be)
+    assert not s["available"] and "--load-draft" in s["reason"]
+    assert be.info()["draft"]["loaded"] is False and be.info()["draft"]["requested"] is False
+
+    cfg2 = load_app_config()
+    cfg2["real"]["load_draft"] = True
+    loader2, made2 = _fake_loaders()
+    be2 = RealBackend(cfg2, source={"kind": "merged", "path": "x"}, loader=loader2)
+    be2.start()
+    assert _wait_for(lambda: be2.ready() and "small" in be2.models)
+    assert made2 == ["merged", "small"]                       # one thread, sequential
+    assert _spec(be2)["available"]
+    info = be2.info()
+    assert info["target"]["name"] == "Target-4B" and info["draft"]["name"] == "Draft-0.6B"
+    be2.select("small")                                        # draft as the active model: speculative off, with a reason
+    s2 = _spec(be2)
+    assert not s2["available"] and "merged 4B as the active model" in s2["reason"]
+
+
+def test_draft_failure_does_not_block_target():
+    from trialmatch.app.backends import RealBackend
+    cfg = load_app_config()
+    cfg["real"]["load_draft"] = True
+    loader, made = _fake_loaders()
+    loader.fail_draft = True
+    be = RealBackend(cfg, source={"kind": "merged", "path": "x"}, loader=loader)
+    be.start()
+    assert _wait_for(lambda: "small" in be.errors)
+    assert be.ready() and be.phase() == "ready"
+    s = _spec(be)
+    assert not s["available"] and "failed to load" in s["reason"]
+    assert be.info()["draft"]["error"]
+
+
+def test_status_exposes_both_models_via_api():
+    from trialmatch.app.backends import RealBackend
+    cfg = load_app_config()
+    cfg["real"]["load_draft"] = True
+    loader, _ = _fake_loaders()
+    be = RealBackend(cfg, source={"kind": "merged", "path": "x"}, loader=loader)
+    be.start()
+    assert _wait_for(lambda: len(be.models) == 2)
+    c = TestClient(create_app(Runtime.with_backend(cfg, be, ExampleStore([]))))
+    s = c.get("/api/status").json()
+    assert s["target"]["loaded"] and s["draft"]["loaded"]
+    assert next(e for e in s["engines"] if e["id"] == "speculative")["available"]
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert "Draft:" in js and "Target:" in js                    # header renders both models
+
+
+def test_launch_cli_has_load_draft_flag():
+    src = (Path(__file__).resolve().parents[1] / "scripts" / "launch_app.py").read_text(encoding="utf-8")
+    assert '"--load-draft"' in src and 'cfg["real"]["load_draft"] = True' in src
+
+
+# ---------------------------------------------------------------- examples / benchmark empty states
+def test_missing_val_parquet_gives_clear_message(monkeypatch):
+    def boom(cls):
+        raise FileNotFoundError("data/processed/val.parquet")
+    monkeypatch.setattr(ExampleStore, "from_val", classmethod(boom))
+    st = ExampleStore.safe_from_val()
+    assert st.rows == [] and "python scripts/prepare_data.py" in st.error
+    rt = Runtime(load_app_config(), "demo")
+    rt._examples = None
+    assert "prepare_data.py" in rt.examples.public()["error"]
+    assert "prepare_data.py" in ExampleStore([], ExampleStore.MISSING_MSG).public()["error"]
+    assert ExampleStore([]).public()["error"] is None
+
+
+def test_official_benchmark_files_configured_and_missing_is_empty_state(tmp_path):
+    from trialmatch.app import lab
+    cfg = load_app_config()
+    assert cfg["benchmarks"]["kv_cache"].endswith("kv_cache_20261107_192136.json")
+    assert cfg["benchmarks"]["speculative"].endswith("speculative_20261108_113154.json")
+    s = lab.load_saved(cfg)
+    assert s["kv_cache"]["available"] and s["speculative"]["available"]
+    s = lab.load_saved({"benchmarks": {"kv_cache": "no/such.json", "speculative": None, "attention": None}})
+    assert all(not v["available"] for v in s.values())
+    assert "not found" in s["kv_cache"]["reason"] and "benchmarks.kv_cache" in s["kv_cache"]["reason"]
+    assert "scripts/bench_attention.py" in s["attention"]["reason"]

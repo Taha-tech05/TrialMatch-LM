@@ -14,10 +14,11 @@ DEFINITIONS = """## Definitions
 - Baseline = majority label per criterion type learned from TRAIN only, plus always-empty evidence.
 - Validation split only (n small, 8 patients): differences of a few rows are within noise.
 """
+TEST_DEFINITIONS_LINE = "- Test split (8 patients, evaluated once): differences of a few rows are within noise."
 
 
-def build_metrics(tag: str, records: list[dict], extra: dict | None = None) -> dict:
-    return {"tag": tag, "split": "val", "n": len(records), **(extra or {}),
+def build_metrics(tag: str, records: list[dict], extra: dict | None = None, split: str = "val") -> dict:
+    return {"tag": tag, "split": split, "n": len(records), **(extra or {}),
             "classification": report_by_scope(records), "evidence": evidence_report(records)}
 
 
@@ -25,9 +26,10 @@ def _f(x, nd=3):
     return "n/a" if x is None or x != x else f"{x:.{nd}f}"
 
 
-def comparison_markdown(metrics: dict[str, dict]) -> str:
+def comparison_markdown(metrics: dict[str, dict], split: str = "val", preamble: list[str] | None = None) -> str:
     tags = list(metrics)
-    L = ["# Validation comparison (val split only)", ""]
+    L = ["# Validation comparison (val split only)" if split == "val" else f"# {split.capitalize()} comparison ({split} split)", ""]
+    L += list(preamble or [])
     L += ["## Overall", "",
           "| system | n | accuracy | macro-F1 (present) | macro-F1 (full) | invalid rate | evid. micro F1 (incl.) | evid. macro F1 (incl.) | evid. micro F1 (excl.) | evid. macro F1 (excl.) |",
           "|---|---|---|---|---|---|---|---|---|---|"]
@@ -69,7 +71,7 @@ def comparison_markdown(metrics: dict[str, dict]) -> str:
             L.append(f"| {t} | {scope} | {eg['n']} | {eg.get('n_pred_empty_correct', 'n/a')} ({_f(eg.get('rate_correctly_empty'), 2)}) | "
                      f"{ng['n']} | {ng.get('n_exact_match', 'n/a')} ({_f(ng.get('rate_exact_match'), 2)}) | "
                      f"{ng.get('n_pred_empty_missed', 'n/a')} | {_f(ng.get('macro', {}).get('f1'))} |")
-    L += ["", DEFINITIONS]
+    L += ["", DEFINITIONS if split == "val" else DEFINITIONS.replace(DEFINITIONS.splitlines()[-1], TEST_DEFINITIONS_LINE)]
     return "\n".join(L) + "\n"
 
 

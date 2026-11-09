@@ -78,6 +78,19 @@ $("rt-criteria").onclick = () => showRight("criteria");
 $("rt-summary").onclick = () => showRight("summary");
 
 /* ---------- status ---------- */
+function modelHeader(st) {
+  const desc = (m) => `${m.name} · ${m.device} · ${m.dtype}`;
+  if (!st.target || !st.draft) {   // older/simple backends: single model
+    return st.model_name ? `${st.model_name} · ${st.device} · ${st.dtype}`
+      : (st.phase === "loading" ? "loading model… (CPU load can take minutes)" : "no model");
+  }
+  const t = st.target, d = st.draft;
+  const tgt = t.loaded ? `Target: ${desc(t)}` : (t.error ? "Target: failed to load" : "Target: loading… (CPU load can take minutes)");
+  const drf = d.loaded ? `Draft: ${desc(d)}` : (d.loading ? "Draft: loading…" : (d.error ? "Draft: failed to load" : "Draft: not loaded"));
+  const active = st.model_key === "small" && st.model_name ? `Active: ${st.model_name} · ` : "";
+  return `${active}${tgt}  |  ${drf}`;
+}
+
 async function refreshStatus() {
   let st;
   try { st = await api("/api/status"); } catch (e) { setMode("error", "OFFLINE", e.message); schedule(5000); return; }
@@ -85,8 +98,7 @@ async function refreshStatus() {
   const mode = st.mode === "demo" ? "demo" : (st.phase === "ready" ? "real" : (st.phase === "error" ? "error" : "loading"));
   const label = st.mode === "demo" ? "DEMO" : (st.phase === "ready" ? "REAL" : (st.phase === "error" ? "ERROR" : "LOADING"));
   setMode(mode, label, null);
-  $("model-info").textContent = st.mode === "demo" ? "cached validation predictions · no model"
-    : (st.model_name ? `${st.model_name} · ${st.device} · ${st.dtype}` : (st.phase === "loading" ? "loading model… (CPU load can take minutes)" : "no model"));
+  $("model-info").textContent = st.mode === "demo" ? "cached validation predictions · no model" : modelHeader(st);
   const ban = $("banner");
   const msgs = [];
   if (st.mode === "demo") msgs.push(st.demo_banner + ". Only notes and criteria from the validation set can be answered.");
@@ -124,6 +136,9 @@ function fillEngines(st) {
   if (st.mode === "demo") { sel.append(h("option", {}, "cached (demo)")); sel.disabled = true; $("engine-warn").textContent = ""; return; }
   sel.disabled = false;
   for (const e of st.engines) sel.append(h("option", { value: e.id, disabled: !e.available, title: e.reason || "" }, e.label + (e.available ? "" : " (unavailable)")));
+  const un = st.engines.find((e) => !e.available && e.reason && e.id === "speculative");
+  if (un && $("engine-hint")) { $("engine-hint").textContent = "Speculative unavailable: " + un.reason; }
+  else if ($("engine-hint")) { $("engine-hint").textContent = ""; }
   sel.value = (st.engines.find((e) => e.id === keep && e.available) ? keep : "kv");
   updateEngineWarn();
 }
@@ -339,7 +354,14 @@ async function init() {
     S.examples = await api("/api/examples");
     for (const n of S.examples.notes) $("note-example").append(h("option", { value: n.id }, n.label));
     for (const t of S.examples.trials) $("trial-example").append(h("option", { value: t.id }, t.label));
-    if (!S.examples.notes.length) $("note-info").textContent = "No validation examples found (data/processed/val.parquet missing). You can still paste your own note.";
+    if (!S.examples.notes.length) {
+      const msg = S.examples.error || "No validation examples found. Run: python scripts/prepare_data.py";
+      $("note-info").textContent = msg + " You can still paste your own note.";
+      for (const id of ["note-example", "trial-example"]) {
+        const sel = $(id); sel.append(h("option", { value: "", disabled: true }, "Run python scripts/prepare_data.py"));
+        sel.title = msg;
+      }
+    }
   } catch (e) { alertBox(e.message); }
 }
 
@@ -351,7 +373,8 @@ function initLab() {
   loadSaved(); loadPrompts(); drawAttention(); updateLabAvailability();
 }
 async function loadPrompts() {
-  try { const r = await api("/api/lab/prompts"); const s = $("lab-val"); r.prompts.forEach((p) => s.append(h("option", { value: p.id }, p.label))); } catch (e) { /* optional */ }
+  try { const r = await api("/api/lab/prompts"); const s = $("lab-val"); r.prompts.forEach((p) => s.append(h("option", { value: p.id }, p.label)));
+    if (!r.prompts.length) s.append(h("option", { value: "", disabled: true }, "Run python scripts/prepare_data.py")); } catch (e) { /* optional */ }
 }
 function updateLabAvailability() {
   const st = S.status || {}; const live = st.live_available && st.phase === "ready";

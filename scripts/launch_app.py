@@ -3,6 +3,7 @@
   python scripts/launch_app.py                       # auto: real model if a source exists, else demo
   python scripts/launch_app.py --mode demo           # cached validation predictions only (no torch needed)
   python scripts/launch_app.py --mode real --merged-dir PATH_TO_MERGED_FP16
+  python scripts/launch_app.py --mode real --merged-dir PATH --load-draft   # also load the 0.6B draft -> Speculative enabled
   python scripts/launch_app.py --share               # also open a public link IF cloudflared or ngrok is installed
 
 Then open http://localhost:7860 . Binds to 127.0.0.1 unless --host is given.
@@ -66,10 +67,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mode", choices=["real", "demo", "auto"], default="auto")
     ap.add_argument("--merged-dir", help="saved merged fp16 model directory (overrides config/env)")
+    ap.add_argument("--load-draft", action="store_true",
+                    help="also load the small draft model (Qwen3-0.6B) at startup so the Speculative engine is available")
     ap.add_argument("--port", type=int, default=cfg["server"]["port"])
     ap.add_argument("--host", default=cfg["server"]["host"])
     ap.add_argument("--share", action="store_true", help="open a public link via an installed cloudflared/ngrok")
     a = ap.parse_args()
+    if a.load_draft:
+        cfg["real"]["load_draft"] = True
     try:
         import uvicorn
         from trialmatch.app.runtime import Runtime

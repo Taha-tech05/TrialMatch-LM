@@ -16,11 +16,13 @@ READ_SPLITS = ("train", "val")
 SENTENCE_RE_PREFIX = "The patient will provide informed consent"
 
 
-def load_gold(split: str = "val", cfg: dict | None = None) -> pd.DataFrame:
+def load_gold(split: str = "val", cfg: dict | None = None, allow_test: bool = False) -> pd.DataFrame:
     """Gold rows for train/val with the columns needed for metrics and error analysis, skipping
-    known-skipped annotations. The test split is refused."""
-    if split not in READ_SPLITS:
-        raise PermissionError(f"load_gold reads only {READ_SPLITS}, not {split!r}")
+    known-skipped annotations. The test split is refused unless allow_test=True (final evaluation only)."""
+    if split == "test" and allow_test:
+        pass
+    elif split not in READ_SPLITS:
+        raise PermissionError(f"load_gold reads only {READ_SPLITS}, not {split!r} (test needs the final-evaluation flag)")
     cfg = cfg or load_config()
     c = cfg["columns"]
     path = resolve(cfg["paths"]["processed_dir"]) / f"{split}.parquet"
@@ -67,8 +69,21 @@ def join_predictions(preds: list[dict], gold: pd.DataFrame, cfg: dict | None = N
     return out
 
 
-def load_joined(tag: str, split: str = "val", eval_dir: Path | None = None) -> list[dict]:
+def load_joined(tag: str, split: str = "val", eval_dir: Path | None = None, allow_test: bool = False) -> list[dict]:
     cfg = load_config()
     eval_dir = eval_dir or resolve("results/eval")
-    gold = load_gold(split, cfg)
+    gold = load_gold(split, cfg, allow_test=allow_test)
     return join_predictions(load_predictions(eval_dir / f"{tag}_{split}_predictions.jsonl"), gold, cfg)
+
+
+def check_metrics_split(split: str, confirm_final: bool) -> bool:
+    """Guard for scripts/compute_metrics.py and scripts/export_errors.py: returns allow_test.
+    Test data is read only with split == 'test' AND confirm_final; the flag alone never reads it."""
+    if split not in ("val", "test"):
+        raise ValueError(f"unknown split {split!r}")
+    if split == "test" and not confirm_final:
+        raise PermissionError("Refusing to read the test split: pass --split test --confirm-final "
+                              "(final evaluation only).")
+    if split == "val" and confirm_final:
+        raise ValueError("--confirm-final only applies to --split test")
+    return split == "test"

@@ -58,10 +58,7 @@ class Runtime:
     @property
     def examples(self) -> ExampleStore:
         if self._examples is None:
-            try:
-                self._examples = ExampleStore.from_val()
-            except Exception:
-                self._examples = ExampleStore([])
+            self._examples = ExampleStore.safe_from_val()
         return self._examples
 
     def status(self) -> dict:

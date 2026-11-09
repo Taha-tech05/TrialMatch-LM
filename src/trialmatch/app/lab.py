@@ -19,12 +19,18 @@ MIB = 2 ** 20
 
 
 # ------------------------------------------------------------------------------------------ saved results
-def _read(rel):
+_SCRIPT = {"kv_cache": "scripts/bench_kv_cache.py", "speculative": "scripts/bench_speculative.py",
+           "attention": "scripts/bench_attention.py"}
+
+
+def _read(rel, key="this benchmark"):
     if not rel:
-        return None, "no file configured (set it under benchmarks: in configs/app.yaml)"
+        return None, (f"No saved {key} benchmark file is configured. Run {_SCRIPT.get(key, 'the benchmark script')} (on the GPU "
+                      f"machine) and set benchmarks.{key} in configs/app.yaml to the result .json.")
     p = resolve(rel)
     if not p.exists():
-        return None, f"file not found: {rel}"
+        return None, (f"Saved benchmark file not found: {rel}. Copy it into results/benchmarks/ or fix benchmarks.{key} "
+                      f"in configs/app.yaml.")
     try:
         return json.loads(p.read_text(encoding="utf-8")), None
     except Exception as e:
@@ -103,7 +109,7 @@ def load_saved(cfg: dict) -> dict:
     out = {}
     for key, fn in (("kv_cache", _kv), ("speculative", _spec), ("attention", _attn)):
         rel = (cfg.get("benchmarks") or {}).get(key)
-        data, why = _read(rel)
+        data, why = _read(rel, key)
         try:
             out[key] = fn(data, rel) if data is not None else {"available": False, "reason": why}
         except Exception as e:

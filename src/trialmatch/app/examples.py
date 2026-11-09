@@ -3,9 +3,12 @@ from trialmatch.utils.common import load_config
 
 
 class ExampleStore:
-    def __init__(self, rows: list[dict]):
+    MISSING_MSG = ("Validation examples are unavailable: data/processed/val.parquet is missing. "
+                   "Run: python scripts/prepare_data.py")
+
+    def __init__(self, rows: list[dict], error: str | None = None):
         """rows: dicts with annotation_id, patient_id, trial_id, trial_title, criterion_type, criterion_text, note."""
-        self.rows = rows
+        self.rows, self.error = rows, error
         self.by_id = {r["annotation_id"]: r for r in rows}
         notes, trials = {}, {}
         for r in rows:
@@ -20,6 +23,17 @@ class ExampleStore:
         for t in trials.values():
             t["label"] = f"{t['id']}: {t['title'][:70]} ({len(t['criteria'])} criteria)"
         self.notes, self.trials = list(notes.values()), list(trials.values())
+
+    @classmethod
+    def safe_from_val(cls) -> "ExampleStore":
+        """from_val(), but never raises: an empty store carrying a clear message the UI shows instead."""
+        try:
+            return cls.from_val()
+        except FileNotFoundError:
+            return cls([], cls.MISSING_MSG)
+        except Exception as e:
+            return cls([], f"Validation examples could not be loaded ({type(e).__name__}). "
+                           "If data/processed/ was not built yet, run: python scripts/prepare_data.py")
 
     @classmethod
     def from_val(cls) -> "ExampleStore":
@@ -42,7 +56,8 @@ class ExampleStore:
         return cls(rows)
 
     def public(self) -> dict:
-        return {"notes": [{k: n[k] for k in ("id", "label", "note")} for n in self.notes],
+        return {"error": self.error,
+                "notes": [{k: n[k] for k in ("id", "label", "note")} for n in self.notes],
                 "trials": [{k: t[k] for k in ("id", "label", "patient_id", "criteria")} for t in self.trials]}
 
     def prompts(self) -> list[dict]:

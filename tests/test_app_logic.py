@@ -249,3 +249,19 @@ def test_report_contents_and_escaping(tmp_path):
     assert len(rep["missing_information"]) == 1
     paths = save_report(rep, tmp_path / "reports")
     assert all((tmp_path / "reports" / p.split("\\")[-1].split("/")[-1]).exists() for p in paths.values())
+
+
+def test_splitter_unit_dots_split_but_abbreviations_and_decimals_do_not():
+    t = "Laboratory tests show an HbA1c of 8.2% and a creatinine of 1.1 mg/dL. He has no known drug allergies."
+    assert split_sentences(t) == ["Laboratory tests show an HbA1c of 8.2% and a creatinine of 1.1 mg/dL.",
+                                  "He has no known drug allergies."]
+    assert split_sentences("BP was 120/80 mmHg. Pulse was regular.") == ["BP was 120/80 mmHg.", "Pulse was regular."]
+    assert split_sentences("Oxygen saturation was 94%. She was stable.") == ["Oxygen saturation was 94%.", "She was stable."]
+    assert split_sentences("Hemoglobin 12 g. He left.") == ["Hemoglobin 12 g.", "He left."]
+    assert split_sentences("Weighs 70 kg. She is well.") == ["Weighs 70 kg.", "She is well."]
+    # abbreviations and decimals must not split
+    assert split_sentences("Seen by Dr. Smith today. Fine.") == ["Seen by Dr. Smith today.", "Fine."]
+    assert split_sentences("Seen by Dr. M. Smith. Fine.") == ["Seen by Dr. M. Smith.", "Fine."]
+    assert split_sentences("HbA1c was 7.5 and rose. Then fell.") == ["HbA1c was 7.5 and rose.", "Then fell."]
+    assert split_sentences("Dose 7.5 mg. daily. Ok.") == ["Dose 7.5 mg. daily.", "Ok."]      # lower-case follow-up: abbreviation
+    assert split_sentences("Take 5 mg. 2 tablets daily.") == ["Take 5 mg. 2 tablets daily."]
