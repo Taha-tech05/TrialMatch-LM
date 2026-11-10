@@ -16,5 +16,6 @@ The application was run in **real mode** (Qwen3-4B + LoRA merged, cuda, float16,
 | `08_live_bench_tiled.png` | Live mini-benchmark controls and the tiled-attention visualiser (6 of 16 blocks skipped) |
 | `09_speculative_run_16_criteria.png` | Validation note screened with the speculative engine: 16/16 criteria in 22 s, saved report, NEI with missing-information flag |
 | `10_live_kv_run.png` | Live KV-cached run: prompt 323 tokens, 17.13 decode tok/s, prefill 0.236 s |
+| `11_mi_3_months_not_excluded.png` | Exclusion criterion "Myocardial infarction within the last 6 months" labelled "not excluded" while citing "3 months ago" (cropped); also BMI inclusion = NEI with the missing flag, "Pregnant or breastfeeding" = not applicable |
 
 Not yet captured (see the checklist in `docs/app_notes.md`): DEMO-mode header, light theme, the other badge types, a mid-run progress bar, and a token stream with accepted/corrected speculative tokens.

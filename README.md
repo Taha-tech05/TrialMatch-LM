@@ -21,7 +21,7 @@ Headline numbers (test split, 206 rows, 8 patients, evaluated once with the merg
 ## Setup
 
 - **Light setup (data, metrics, tests, demo-mode app; no GPU):** `pip install -r requirements.txt` (add `-r requirements-app.txt` for the app).
-- **GPU setup (training, merging, benchmarks, real-mode app):** `pip install -r requirements.txt -r requirements-gpu.txt && pip install -e .`. Training and all benchmarks were run on a Colab Tesla T4 with Python 3.13.16, torch 2.14.1+cu130, transformers 5.22.1, peft 0.21.2, bitsandbytes 0.50.2 (`results/logs/env_qwen3-4b_qlora_4bit.json`). The cache code relies on the transformers 5.x `DynamicCache` API (with a fallback, see `src/trialmatch/inference/speculative/cache_sync.py`). Minimum local Python version: TODO(verify).
+- **GPU setup (training, merging, benchmarks, real-mode app):** `pip install -r requirements.txt -r requirements-gpu.txt && pip install -e .`. Training and all benchmarks were run on a Colab Tesla T4 with Python 3.13.16, torch 2.14.1+cu130, transformers 5.22.1, peft 0.21.2, bitsandbytes 0.50.2 (`results/logs/env_qwen3-4b_qlora_4bit.json`). The cache code relies on the transformers 5.x `DynamicCache` API (with a fallback, see `src/trialmatch/inference/speculative/cache_sync.py`). Minimum Python version: 3.10 (`pyproject.toml`).
 - **Colab:** `notebooks/colab_runner.ipynb` runs the setup cells; set `TRIALMATCH_OUT` (e.g. a Google Drive folder) so checkpoints, the merged model and results survive a disconnect.
 - **Hugging Face:** the dataset download needs network access; the gated Llama repositories were inaccessible and are skipped (`docs/model_facts.md`).
 
@@ -287,7 +287,7 @@ the screenshot checklist, and `demo/` for the screenshots taken in real mode on 
 
 ## Model Weights Download
 
-The adapter (LoRA weights) and the merged fp16 model (~8 GB) are **not committed**. Hub repository: https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora (id `Taha549/trialmatch-qwen3-4b-qlora`). Whether it holds the LoRA adapter or the merged fp16 model was not checked: TODO(verify). The snippet below assumes it is the adapter, as the name suggests.
+The adapter (LoRA weights) and the merged fp16 model (~8 GB) are **not committed**. Hub repository: https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora (id `Taha549/trialmatch-qwen3-4b-qlora`). It holds the LoRA adapter, not the merged fp16 model.
 
 Load the adapter on the base model, build the prompt with the project's formatter, decode greedily and parse with the project parser:
 
@@ -300,7 +300,7 @@ from trialmatch.model.prompt import build_prompt
 from trialmatch.model.chat import chat_prompt_text
 from trialmatch.model.parse import parse_output
 
-HUB_ID = "Taha549/trialmatch-qwen3-4b-qlora"   # assumed to be the adapter: TODO(verify)
+HUB_ID = "Taha549/trialmatch-qwen3-4b-qlora"   # LoRA adapter
 tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B")
 base = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-4B", torch_dtype=torch.float16, device_map="auto")
 model = PeftModel.from_pretrained(base, HUB_ID)
@@ -317,11 +317,11 @@ answer = tok.decode(out[0, ids["input_ids"].shape[1]:], skip_special_tokens=True
 print(parse_output(answer, "exclusion", n_sentences=2))                      # status 'ok' or 'invalid', never remapped
 ```
 
-The adapter was trained on a 4-bit (NF4) base. Loading it on an fp16 base, or merging it, is a slightly different model: on validation the merged model scored 0.733 accuracy against 0.748 for the 4-bit-base run (`results/eval/finetuned_merged_val_summary.json`, `results/eval/finetuned_val_summary.json`). The snippet was assembled from the project's function signatures and has not been run end to end: TODO(verify). This is an educational prototype, not a clinical tool.
+The adapter was trained on a 4-bit (NF4) base. Loading it on an fp16 base, or merging it, is a slightly different model: on validation the merged model scored 0.733 accuracy against 0.748 for the 4-bit-base run (`results/eval/finetuned_merged_val_summary.json`, `results/eval/finetuned_val_summary.json`). The snippet was assembled from the project's function signatures and has not been run end to end. This is an educational prototype, not a clinical tool.
 
 ## Reproducibility
 
-Seeds: split seed 42 (`configs/data.yaml`), training seed 42 (`configs/train.yaml`). The order below is reconstructed from the sections above and the script docstrings, not from a shell history; the exact flags of the one-time test run are not recorded in the repo: TODO(verify). `$OUT` is `$TRIALMATCH_OUT`; `$M` is `$OUT/merged/qwen3-4b_merged_fp16`.
+Seeds: split seed 42 (`configs/data.yaml`), training seed 42 (`configs/train.yaml`). The order below is reconstructed from the sections above and the script docstrings, not from a shell history; the exact flags of the one-time test run are not recorded in the repo (the flags used below exist in `scripts/evaluate.py`). `$OUT` is `$TRIALMATCH_OUT`; `$M` is `$OUT/merged/qwen3-4b_merged_fp16`.
 
 ```bash
 # 0. install and test (CPU)
@@ -361,8 +361,8 @@ python scripts/bench_speculative.py --merged-dir $M
 #   (or: python scripts/colab_all.py, which runs the merge, the merged val evaluation and the three benchmarks in one go)
 
 # 6. final test evaluation: ONCE, after all decisions are frozen (refuses a second run without --force)
-python scripts/evaluate.py --tag base --split test --confirm-final                                      # TODO(verify) flags
-python scripts/evaluate.py --merged --merged-dir $M --tag finetuned_merged --split test --confirm-final # TODO(verify) flags
+python scripts/evaluate.py --tag base --split test --confirm-final
+python scripts/evaluate.py --merged --merged-dir $M --tag finetuned_merged --split test --confirm-final
 python scripts/compute_metrics.py --split test --confirm-final
 python scripts/export_errors.py --split test --confirm-final
 
@@ -405,4 +405,4 @@ trialmatch-transformer/
 
 ## AI Use Acknowledgment
 
-This project was developed with AI assistance: Claude Code wrote and tested most of the code and drafted the notes in `docs/`, the error analysis, the paper text and this README from the repository's own files; a Claude chat assistant was also used, according to the author for concept explanation and prompt refining. Each session, what the author verified and what was not exercised (GPU runs, the real 4B model on CPU, the UI in a browser) is listed in `docs/ai_use_log.md` and in the appendix of `report/main.tex`. The author remains responsible for the content and must review the drafted prose, and every reference in the paper is marked VERIFY.
+This project was developed with AI assistance: Claude Code wrote and tested most of the code and drafted the notes in `docs/`, the error analysis, the paper text and this README from the repository's own files; a Claude chat assistant was also used, according to the author for concept explanation and prompt refining. Each session, what the author verified and what was not exercised (GPU runs, the real 4B model on CPU, the UI in a browser) is listed in `docs/ai_use_log.md` and in the appendix of `report/main.tex`. The author remains responsible for the content and must review the drafted prose and the reference list.

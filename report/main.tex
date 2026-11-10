@@ -1,6 +1,6 @@
 % DRAFT written by Claude Code for the author to review. Every number comes from a file in results/ or configs/ (named in a % comment),
 % or is read from a screenshot in report/figures/ (stated in the text).
-% Red [TODO(verify): ...] marks facts that are not in the repo. Red [PLACEHOLDER: ...] marks author/link fields.
+% Red [PLACEHOLDER: ...] marks the one remaining author field (video link).
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
 \usepackage{cite}
@@ -20,7 +20,6 @@
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
-\newcommand{\todo}[1]{\textcolor{red}{[TODO(verify): #1]}}
 \newcommand{\placeholder}[1]{\textcolor{red}{[PLACEHOLDER: #1]}}
 \newcommand{\code}[1]{\texttt{#1}}
 \emergencystretch=3em
@@ -30,13 +29,10 @@
 
 \title{TrialMatch Transformer: Fine-Tuning, KV-Cache, Tiled Attention and Speculative Decoding for Clinical-Trial Criterion Screening}
 
-\author{\IEEEauthorblockN{\placeholder{author name}}
-\IEEEauthorblockA{\placeholder{affiliation, city, country}\\
-\placeholder{email}}
-\and
-\IEEEauthorblockN{Links}
-\IEEEauthorblockA{Code: \placeholder{GitHub URL}\\
-Weights: \url{https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora}\\
+\author{\IEEEauthorblockN{Muhammad Taha Irfan}
+\IEEEauthorblockA{Email: tahairfa549@gmail.com\\
+Code: \url{https://github.com/Taha-tech05/TrialMatch-LM}\\
+Adapter: \url{https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora}\\
 Video: \placeholder{video link}}
 }
 
@@ -62,7 +58,7 @@ Contributions: (i) a leakage-controlled data pipeline with a strict JSON output 
 
 \emph{Models and fine-tuning.} We use Qwen3 \cite{qwen3}, LoRA adapters \cite{lora} and 4-bit base weights as in QLoRA \cite{qlora}.
 
-\emph{Efficient inference.} Attention follows \cite{vaswani}; the online softmax \cite{milakov} and its blockwise use in FlashAttention \cite{flashattention} motivate our tiled version, which is plain PyTorch and therefore not fused. Grouped-query attention \cite{gqa} and rotary embeddings \cite{rope} determine the size and indexing of the KV cache. Speculative decoding \cite{leviathan,chen2023} motivates our greedy draft-and-verify decoder. Five of these references (Qwen3, LoRA, Attention Is All You Need, online softmax, speculative decoding by Leviathan et al.) are marked VERIFY in the bibliography file because their details could not be checked.
+\emph{Efficient inference.} Attention follows \cite{vaswani}; the online softmax \cite{milakov} and its blockwise use in FlashAttention \cite{flashattention} motivate our tiled version, which is plain PyTorch and therefore not fused. Grouped-query attention \cite{gqa} and rotary embeddings \cite{rope} determine the size and indexing of the KV cache. Speculative decoding \cite{leviathan,chen2023} motivates our greedy draft-and-verify decoder. 
 
 \section{Materials and Methods}
 \subsection{Dataset and split}\label{sec:data}
@@ -101,7 +97,7 @@ The longest prompt plus target is 618 tokens with the Qwen chat template (thinki
 
 \subsection{Model selection}
 \begin{table*}[t]
-\caption{Candidate models. ``Loaded'' parameter counts come from the benchmark environment; the generated hub-metadata table lists 0.75 B for the draft (see text). Llama figures are the author's notes and were not measured. Sources: \protect\path{docs/model_facts.md}, \protect\path{docs/memory_estimate.md}, \protect\path{results/benchmarks/speculative_20261108_113154.json}.}\label{tab:models}
+\caption{Candidate models. ``Loaded'' parameter counts come from the benchmark environment; the generated hub-metadata table lists 0.75 B for the draft (see text). Llama figures were supplied by the author from the model cards and not measured here. Sources: \protect\path{docs/model_facts.md}, \protect\path{docs/memory_estimate.md}, \protect\path{results/benchmarks/speculative_20261108_113154.json}.}\label{tab:models}
 \centering\scriptsize\setlength{\tabcolsep}{3pt}
 \begin{tabular}{llrrrrrl}
 \toprule
@@ -110,13 +106,14 @@ model & role & params (B) & layers & hidden & query / KV heads & fp16 weights (G
 Qwen3-4B & target & 4.022 (loaded) & 36 & 2560 & 32 / 8 & 7.49 & chosen, fine-tuned\\
 Qwen3-0.6B & draft & 0.596 (loaded) & 28 & 1024 & 16 / 8 & 1.11 (arithmetic) & chosen, untuned\\
 Qwen3-1.7B & fallback & 2.03 (hub metadata) & 28 & 2048 & 16 / 8 & 3.78 & never trained\\
-Llama-3.2-3B / 1B & alternative & \todo{about 3.2 / 1.23} & \todo{28 / 16} & --- & \todo{24 / 8 (3B)} & not measured & rejected: gated (401)\\
+Llama-3.2-3B & alt.\ target & 3.21 & 28 & 3072 & 24 / 8 & 6.43 (arithmetic) & rejected: gated (401), not measured\\
+Llama-3.2-1B & alt.\ draft & 1.24 & 16 & 2048 & 32 / 8 & 2.48 (arithmetic) & rejected with its target\\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 Table~\ref{tab:models} compares the candidates. We chose Qwen3-4B as the target and Qwen3-0.6B as the speculative draft. Both are open (Apache-2.0) and ungated, share one tokenizer (identical on a 200-string check, \path{docs/decisions.md}) and have 36 and 28 layers, a size ratio of $4.022/0.596=6.7$. The target's fp16 weights are estimated at 7.49 GiB; with the draft loaded the measured peak was about 9.08 GiB for speculative runs and 8.81 GiB for plain runs on the 14.56 GiB T4. % results/benchmarks/speculative_20261108_113154.json peak_mem_bytes_median, 512 input / 128 new tokens
-Qwen3-1.7B was kept as a fallback if the 3-epoch projection exceeded 90 minutes; it was never needed. The Llama-3.2 pair (3B target, 1B draft) was rejected because both repositories were gated and returned HTTP 401, so nothing could be measured; its remaining figures are from the author's notes and unverified. Reasons that follow from those notes are weaker: a smaller target-to-draft ratio (about 2.6) would leave less room for a speculative speed-up, and a 128K context has no use when the longest prompt plus target is 618 tokens. The 0.75 B listed for the draft in the generated hub-metadata table differs from the 0.596 B reported by the loaded model; we use the loaded count and do not know the cause. \todo{why the hub metadata count differs from the loaded parameter count}
+Qwen3-1.7B was kept as a fallback if the 3-epoch projection exceeded 90 minutes; it was never needed. The Llama-3.2 pair (3B target, 1B draft) was rejected because both repositories were gated and returned HTTP 401, so nothing could be measured; its architecture figures in Table~\ref{tab:models} were supplied from the model cards and not measured here. Two further reasons follow from them: the target-to-draft size ratio of $3.21/1.24=2.6$ is much smaller than 6.7 for Qwen3 and leaves less room for a speculative speed-up, and a long context window has no use when the longest prompt plus target is 618 tokens. The 0.75 B listed for the draft in the generated hub-metadata table differs from the 0.596 B reported by the loaded model; we use the loaded count. (The 4B model card likewise lists 4.0 B parameters of which 3.6 B are non-embedding, and the 0.6B, 1.7B and 4B models tie their embeddings.) The model card gives a native context of 32,768 tokens, extendable to 131,072 with YaRN, far above the 618 tokens needed here.
 Qwen3 is a decoder-only model with grouped-query attention (4 query heads per KV head for the 4B model), rotary embeddings, RMSNorm layers and an additional per-head RMSNorm on queries and keys (\code{q\_norm}, \code{k\_norm}) before the rotation, as read in \code{modeling\_qwen3.py} of transformers 5.22.2. The embeddings are tied to the output layer. Our standalone attention functions do not implement the query/key normalisation and are not used inside the model; the cached and speculative decoders call the Hugging Face model, so its own attention runs.
 
 \subsection{System and model architecture}
@@ -195,7 +192,7 @@ The two differ when a class has no gold rows. For evidence, with gold sentence s
 The test split needs an explicit confirmation flag and a single run; it was evaluated once with the merged model. % docs/decisions.md 2026-11-07, results/eval/test_split_evaluated.json
 
 \subsection{Merged fp16 model}
-The adapter was trained on a 4-bit base. For all inference benchmarks we merge it into fp16 weights (\code{merge\_and\_unload}), giving one model of 4,022,468,096 parameters. % results/logs/merge_verify.json, results/benchmarks/kv_cache_20261107_192136.json
+The adapter was trained on a 4-bit base and is published on the Hugging Face Hub (title block); the merged model (about 8 GB) is not committed. For all inference benchmarks we merge it into fp16 weights (\code{merge\_and\_unload}), giving one model of 4,022,468,096 parameters. % results/logs/merge_verify.json, results/benchmarks/kv_cache_20261107_192136.json
 On four validation prompts the merged and unmerged logits differ by at most 0.048 and the top-1 token agrees on all four. % results/logs/merge_verify.json
 
 \subsection{Attention and decoding algorithms}
@@ -380,7 +377,13 @@ test & 193 & excl. & NEI [0-4] $\rightarrow$ not excluded [] & NEI$\rightarrow$d
 Table~\ref{tab:errcat} counts the categories: 92 of 206 validation rows and 81 of 206 test rows have at least one error, but label errors alone are 52 (val) and 48 (test) rows, matching the accuracies 0.748 and 0.767; the rest are right labels with a wrong evidence set. The largest label category on test is NEI answered with a decided label (26 rows), and 18 of those come from one patient, who accounts for 25 of the 81 test errors. % results/error_analysis/test_finetuned_merged_errors.csv
 Table~\ref{tab:errors} shows representative cases. The exclusion NEI misses (val 8 and 19, test 392 and 193) share one pattern: the criterion is not discussed in the note and the model answers with the majority label; the two polarity swaps on the rare ``excluded'' class (val 263, test 184) and the inclusion swaps (val 935, test 185) need a small inference the model does not make; and the consent sentence is cited in 4 validation rows and 1 test row (val 375, test 381), the planned check of the boilerplate sentence. Evidence errors with a correct label (val 13 and 5) are mostly over- or under-citation. All causes are hypotheses.
 
-\emph{Observations in the application.} Using the app we observed a myocardial infarction \emph{three months} ago labelled ``not excluded'' for a criterion excluding a myocardial infarction within six months, and a criterion never mentioned in the note labelled ``not excluded''. The screenshots of that session (Fig.~\ref{fig:app1}) show the note sentence S2 (``myocardial infarction 3 months ago'') highlighted and a summary with 0 decisive-negative criteria and 8 favourable ones, which is consistent with the first observation; the exclusion criteria themselves are not visible in the screenshots. \todo{attach a screenshot of the myocardial infarction criterion card} Both observations point at the same weakness: for exclusion criteria the model treats missing information as absence, and it does not compare a time window in the criterion with a time in the note.
+\emph{Observations in the application.} Using the app we observed a myocardial infarction \emph{three months} ago labelled ``not excluded'' for a criterion excluding a myocardial infarction within six months, and a criterion never mentioned in the note labelled ``not excluded''. Fig.~\ref{fig:mi} shows the first case: the exclusion criterion ``Myocardial infarction within the last 6 months'' is labelled ``not excluded'' (favourable) while the cited sentence S2 reads ``He had a myocardial infarction 3 months ago and underwent stenting'', so the model cites exactly the sentence that contradicts its label (latency 1.0~s, read from the screenshot). Had the card said ``excluded'', the rule would have returned ``likely ineligible'' instead of ``undetermined'' (Fig.~\ref{fig:app1}(b) shows 0 decisive-negative and 8 favourable criteria). The same screenshot shows the body-mass-index inclusion criterion labelled NEI with the missing-information flag and ``Pregnant or breastfeeding'' labelled not applicable for a male patient, both plausible. The second observation has no screenshot. Both observations point at the same weakness: for exclusion criteria the model treats missing information as absence, and it does not compare a time window in the criterion with a time in the note.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/app_11_mi_card.png}
+\caption{Application cards for the myocardial infarction case: the exclusion criterion ``Myocardial infarction within the last 6 months'' is labelled ``not excluded'' and cites S2 (``3 months ago''). Cropped screenshot from the author's session of 2026-11-10 (\protect\path{demo/11_mi_3_months_not_excluded.png}).}\label{fig:mi}
+\end{figure}
 
 \subsection{KV cache}\label{sec:kv}
 \begin{table}[t]
@@ -409,7 +412,7 @@ Table~\ref{tab:kv} and Fig.~\ref{fig:kv} show that the cached decode time per to
 \caption{Tokens per second and decode time, cached vs.\ uncached, by input length. Source: \protect\path{results/benchmarks/kv_cache_20261107_192136.png}.}\label{fig:kv}
 \end{figure*}
 
-\emph{fp16 near-tie.} One of the 12 synthetic cells (256 input, 128 new tokens) produced different tokens: the first mismatch is at step 103 with a maximum logit difference of 0.0293. All other synthetic cells and all 16 validation prompts matched. We read this as a rounding effect (prefill and single-token steps use different matrix shapes) rather than a logic error, since the same decoders agree exactly in fp32 tests on a tiny model; we did not isolate the cause, and the report does not record the top-1/top-2 margin at that step. \todo{margin at the mismatch step} In contrast, the negative test that gives every decode step position 0 (tiny random model) diverges at the first decode step with a logit difference of 3.505 (pytest output supplied by the author, not stored in the repo), so a wrong position is far from a near-tie.
+\emph{fp16 near-tie.} One of the 12 synthetic cells (256 input, 128 new tokens) produced different tokens: the first mismatch is at step 103 with a maximum logit difference of 0.0293. All other synthetic cells and all 16 validation prompts matched. We read this as a rounding effect (prefill and single-token steps use different matrix shapes) rather than a logic error, since the same decoders agree exactly in fp32 tests on a tiny model; we did not isolate the cause, and the report does not record the top-1/top-2 margin at that step. In contrast, the negative test that gives every decode step position 0 (tiny random model) diverges at the first decode step with a logit difference of 3.505 (pytest output supplied by the author, not stored in the repo), so a wrong position is far from a near-tie.
 
 \subsection{Tiled attention}\label{sec:att}
 \begin{table}[t]
@@ -428,7 +431,7 @@ seq & reference & tiled 32 & tiled 256 & SDPA eff.\\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:att} and Fig.~\ref{fig:att} show the expected memory behaviour: the reference's peak memory roughly quadruples per doubling at the long end (1684.5 to 6449.1 MiB from 2048 to 4096), whereas the tiled version stays between 35.8 and 80.2 MiB at 4096 depending on block size, 80 to 180 times smaller. The tiled results are exact to fp16 rounding: the reference, every tiled variant and the math SDPA backend share the same maximum absolute error against the fp32 reference (0.000921 at 128 tokens, 0.000966 at 4096), the memory-efficient SDPA backend has at most 0.00120, and all are within the 0.005 tolerance with no mismatch recorded. Speed is different. With block 32 the plain-PyTorch loop is 22.9 times slower than the reference at 4096 tokens (4514.71 vs 197.06 ms), and time falls about 3 to 4 times per doubling of the block size, which fits the number of Python-level iterations and kernel launches; with block 256 it is 1.7 times faster than the reference at 4096 tokens (113.85 ms) but slightly slower at short lengths (2.60 vs 2.10 ms at 256). The memory-efficient SDPA kernel is fastest everywhere (8.28 ms at 4096, 23.8 times faster than our reference); the flash backend was reported unavailable at every length (``No available kernel''), for a reason the repo does not record. \todo{why the flash SDPA backend is unavailable on this T4}
+Table~\ref{tab:att} and Fig.~\ref{fig:att} show the expected memory behaviour: the reference's peak memory roughly quadruples per doubling at the long end (1684.5 to 6449.1 MiB from 2048 to 4096), whereas the tiled version stays between 35.8 and 80.2 MiB at 4096 depending on block size, 80 to 180 times smaller. The tiled results are exact to fp16 rounding: the reference, every tiled variant and the math SDPA backend share the same maximum absolute error against the fp32 reference (0.000921 at 128 tokens, 0.000966 at 4096), the memory-efficient SDPA backend has at most 0.00120, and all are within the 0.005 tolerance with no mismatch recorded. Speed is different. With block 32 the plain-PyTorch loop is 22.9 times slower than the reference at 4096 tokens (4514.71 vs 197.06 ms), and time falls about 3 to 4 times per doubling of the block size, which fits the number of Python-level iterations and kernel launches; with block 256 it is 1.7 times faster than the reference at 4096 tokens (113.85 ms) but slightly slower at short lengths (2.60 vs 2.10 ms at 256). The memory-efficient SDPA kernel is fastest everywhere (8.28 ms at 4096, 23.8 times faster than our reference); the flash backend was reported unavailable at every length (``No available kernel''), for a reason the repo does not record.
 A PyTorch loop can match the memory advantage of FlashAttention-style tiling but not the speed of a fused kernel. The SDPA calls use fp16 arithmetic while ours accumulate in fp32, so the speed comparison is not like for like.
 
 \begin{figure*}[t]
@@ -453,13 +456,13 @@ $k$ & accept. & tok./verify & speed-up & range & draft share\\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:spec} and Fig.~\ref{fig:spec} show that speculative decoding did not speed up real validation prompts. The acceptance rate falls from 0.974 at $k=1$ to 0.500 at $k=8$ and tokens per verify rise only from 1.97 to 4.67, while the draft's share of time rises from 42.1\% to 83.5\%; the median speed-up is below 1 for every $k$ (0.981, 0.923, 0.928, 0.735), and at $k=8$ no prompt was faster than plain decoding. At $k=1$ one draft step costs about 0.73 of a target verify step (0.421/0.579), far above the 0.15 parameter ratio of 0.6B to 4B; this is plausible because the draft has 28 layers against 36 and batch-size-1 decoding on a T4 is likely dominated by per-layer kernel launches. A back-of-envelope estimate of 1.97/1.73, about 1.14 times, before the extra draft prefill is consistent with the observed 0.98. \todo{profile Python overhead and the verify forward cost}
-The answers are short (15 to 38 tokens): plain decoding of a validation prompt takes a median 1.037 s, 0.177 s of it prefill, leaving few iterations to amortise any overhead. On synthetic inputs the picture is similar at 128 and 256 input tokens (speed-up 0.40 to 1.145), but at 512 input tokens the acceptance rate is 1.0 for most rows and the speed-up reaches 1.288 times ($k=8$, 128 new tokens); we suspect the tiled synthetic prompt yields a repetitive continuation that the draft copies easily, but did not inspect the tokens. \todo{inspect synthetic continuations at 512 tokens}
+Table~\ref{tab:spec} and Fig.~\ref{fig:spec} show that speculative decoding did not speed up real validation prompts. The acceptance rate falls from 0.974 at $k=1$ to 0.500 at $k=8$ and tokens per verify rise only from 1.97 to 4.67, while the draft's share of time rises from 42.1\% to 83.5\%; the median speed-up is below 1 for every $k$ (0.981, 0.923, 0.928, 0.735), and at $k=8$ no prompt was faster than plain decoding. At $k=1$ one draft step costs about 0.73 of a target verify step (0.421/0.579), far above the 0.15 parameter ratio of 0.6B to 4B; this is plausible because the draft has 28 layers against 36 and batch-size-1 decoding on a T4 is likely dominated by per-layer kernel launches. A back-of-envelope estimate of 1.97/1.73, about 1.14 times, before the extra draft prefill is consistent with the observed 0.98.
+The answers are short (15 to 38 tokens): plain decoding of a validation prompt takes a median 1.037 s, 0.177 s of it prefill, leaving few iterations to amortise any overhead. On synthetic inputs the picture is similar at 128 and 256 input tokens (speed-up 0.40 to 1.145), but at 512 input tokens the acceptance rate is 1.0 for most rows and the speed-up reaches 1.288 times ($k=8$, 128 new tokens); we suspect the tiled synthetic prompt yields a repetitive continuation that the draft copies easily, but did not inspect the tokens.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.85\textwidth]{figures/speculative.png}
-\caption{Speed-up vs.\ plain cached greedy decoding and acceptance rate vs.\ $k$. The curves appear to be averages over input lengths while Table~\ref{tab:spec} uses medians. Source: \protect\path{results/benchmarks/speculative_20261108_113154.png}. \todo{confirm how the plot aggregates rows}}\label{fig:spec}
+\caption{Speed-up vs.\ plain cached greedy decoding and acceptance rate vs.\ $k$. The curves are arithmetic means over the runs of each group (synthetic: over the three input lengths; validation: over the 8 prompts), so they differ from the medians of Table~\ref{tab:spec}. Source: \protect\path{results/benchmarks/speculative_20261108_113154.png}.}\label{fig:spec}
 \end{figure*}
 
 \emph{fp16 near-tie.} 84 of the 85 result rows produce the same tokens as plain decoding. The exception (256 input tokens, 128 new tokens, $k=1$) first differs at step 64 with a maximum logit gap of 0.0234 and a plain top-1/top-2 margin of exactly 0.0: the two best logits were tied in fp16 and the chosen token depends on rounding. We read this as a tie, consistent with the 84 identical rows, but did not isolate the cause.
@@ -488,7 +491,7 @@ Fig.~\ref{fig:app2} shows the Inference Lab. The saved cards in (a) reproduce th
 
 \section{Limitations}
 \begin{itemize}
-\item \textbf{Single seed, single run.} One training run (seed 42) and one setting; no confidence intervals. \todo{any other training run outside the repo}
+\item \textbf{Single seed, single run.} One training run (seed 42) and one setting; no confidence intervals.
 \item \textbf{Small test set.} 8 patients and 206 rows; differences of a few rows are within noise, and rows of one patient are correlated.
 \item \textbf{No ``excluded'' rows in test.} The class has zero support on test and only 2 rows on validation.
 \item \textbf{Merged vs.\ 4-bit model.} Validation used the 4-bit-base model (0.748); test and benchmarks used the merged fp16 model (0.733 on validation).
@@ -496,9 +499,9 @@ Fig.~\ref{fig:app2} shows the Inference Lab. The saved cards in (a) reproduce th
 \item \textbf{fp16 near-ties.} One KV-cache cell (step 103, logit gap 0.0293) and one speculative row (step 64, margin 0.0) differ from the reference.
 \item \textbf{Evidence weaknesses.} Exclusion evidence micro-F1 is 0.314 on test; the model over-cites, under-cites and sometimes cites the consent sentence. About 60\% of gold evidence lists are empty, which inflates metrics that include them; both views are reported.
 \item \textbf{Missing information treated as absence.} For exclusion criteria the model often answers ``not excluded'' when the note does not mention the criterion, and it did not apply a six-month window to a three-month-old event in our app test.
-\item \textbf{Candidate comparison.} Only Qwen3-4B was fine-tuned; the Llama alternative could not be measured (gated) and its figures are unverified; the draft's parameter count differs between the hub metadata and the loaded model.
+\item \textbf{Candidate comparison.} Only Qwen3-4B was fine-tuned; the Llama alternative could not be measured (gated) and its architecture figures come from the model cards, not from our measurement; the draft's parameter count differs between the hub metadata and the loaded model.
 \item \textbf{Educational implementations.} Speculative decoding is batch size 1 with an untuned draft and gave no speed-up on real prompts; tiled attention is plain PyTorch, not used inside the model, and slower than fused kernels.
-\item \textbf{Educational prototype.} The preliminary outcome is a rule over criterion labels, not validated against patient-level verdicts; the system must not be used for clinical decisions. The screenshots come from one session, in dark theme, and the myocardial infarction observation lacks a screenshot of its criterion card.
+\item \textbf{Educational prototype.} The preliminary outcome is a rule over criterion labels, not validated against patient-level verdicts; the system must not be used for clinical decisions. The screenshots come from the author's sessions, all in dark theme.
 \end{itemize}
 
 \section{Conclusion}
@@ -510,9 +513,9 @@ QLoRA fine-tuning of Qwen3-4B on 603 patient-grouped rows improves criterion-lev
 
 \emph{What the author verified (from the AI use log).} Detected label, evidence and leakage columns against the raw data; label sums against row counts (an earlier summary omitted NEI rows); a gold round trip over all rows; a KV-cache test value by hand ($36\times8\times128\times1024\times2\times2=150{,}994{,}944$ bytes); that no weights were downloaded and the test split was not read; that gated Llama repositories are reported as skipped; hand-computed metric test values and an sklearn cross-check; decoder and cache invariants through tests on tiny random models; that app tests used fake backends. Not exercised by the assistant: GPU training and evaluation (run by the author on Colab), the real 4B model on a CPU, and the UI in a browser (the author took the screenshots). % docs/ai_use_log.md
 
-\emph{Claude chat (conversational assistant).} Used, according to the author, for concept explanation and for refining the prompts given to Claude Code. It produced no code or results that enter the repository. \todo{what the author verified from the chat explanations}
+\emph{Claude chat (conversational assistant).} Used, according to the author, for concept explanation and for refining the prompts given to Claude Code. It produced no code or results that enter the repository.
 
-\emph{Responsibility.} The notes, error analysis and this paper were drafted by the assistant from repository files and the author's screenshots; every claim carries a source file or a TODO, and the author must review and rewrite them. Five references remain marked VERIFY and were not checked; the six others use BibTeX supplied by the author.
+\emph{Responsibility.} The notes, error analysis and this paper were drafted by the assistant from repository files and the author's screenshots; every claim carries a source file or a TODO, and the author must review and rewrite them. Six references use BibTeX supplied by the author; the entries for the Qwen3 report, LoRA, Attention Is All You Need, the online softmax and speculative decoding by Leviathan et al. were completed by the assistant from memory and should be checked.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
