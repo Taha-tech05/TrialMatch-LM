@@ -1,4 +1,5 @@
-% DRAFT written by Claude Code for the author to review. Every number comes from a file in results/ or configs/ (named in a % comment).
+% DRAFT written by Claude Code for the author to review. Every number comes from a file in results/ or configs/ (named in a % comment),
+% or is read from a screenshot in report/figures/ (stated in the text).
 % Red [TODO(verify): ...] marks facts that are not in the repo. Red [PLACEHOLDER: ...] marks author/link fields.
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
@@ -8,6 +9,12 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{booktabs}
+\usepackage{array}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+\usepackage[caption=false,font=footnotesize]{subfig}
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
@@ -16,6 +23,8 @@
 \newcommand{\todo}[1]{\textcolor{red}{[TODO(verify): #1]}}
 \newcommand{\placeholder}[1]{\textcolor{red}{[PLACEHOLDER: #1]}}
 \newcommand{\code}[1]{\texttt{#1}}
+\emergencystretch=3em
+\sloppy
 
 \begin{document}
 
@@ -27,14 +36,14 @@
 \and
 \IEEEauthorblockN{Links}
 \IEEEauthorblockA{Code: \placeholder{GitHub URL}\\
-Weights: \placeholder{Hugging Face Hub model id}\\
+Weights: \url{https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora}\\
 Video: \placeholder{video link}}
 }
 
 \maketitle
 
 \begin{abstract}
-We build an educational system that reads a short patient note and one inclusion or exclusion criterion of a clinical trial and returns a criterion-level label with the numbers of the supporting note sentences. We fine-tune Qwen3-4B with QLoRA on the TrialGPT criterion annotations using a patient-grouped split of 37/8/8 patients. On the held-out test split (206 criterion rows, 8 patients, evaluated once) the fine-tuned model reaches accuracy 0.767 and macro-F1 0.726 over the classes present, against 0.665 and 0.523 for the base model and 0.626 and 0.272 for a majority-label baseline. The dominant error is answering ``not excluded'' where annotators judged ``not enough information''. We also implement a KV-cache decoder, an online-softmax tiled attention and greedy speculative decoding from scratch and measure them on a Tesla T4. The cache gives a 3.0 times speed-up on real validation prompts and up to 7.1 times at 1024 input tokens; tiled attention uses up to 180 times less peak memory than the reference at 4096 tokens; speculative decoding with an untuned Qwen3-0.6B draft gave no speed-up on real validation prompts. This is an educational prototype, not a clinical enrollment tool.
+We build an educational system that reads a short patient note and one inclusion or exclusion criterion of a clinical trial and returns a criterion-level label with the numbers of the supporting note sentences. We fine-tune Qwen3-4B with QLoRA on the TrialGPT criterion annotations using a patient-grouped split of 37/8/8 patients. On the held-out test split (206 criterion rows, 8 patients, evaluated once) the fine-tuned model reaches accuracy 0.767 and macro-F1 0.726 over the classes present, against 0.665 and 0.523 for the base model and 0.626 and 0.272 for a majority-label baseline. The dominant error is answering ``not excluded'' where annotators judged ``not enough information''. We also implement a KV-cache decoder, an online-softmax tiled attention and greedy speculative decoding from scratch and measure them on a Tesla T4. The cache gives a 3.0 times speed-up on real validation prompts and up to 7.1 times at 1024 input tokens; tiled attention uses up to 180 times less peak memory than the reference at 4096 tokens; speculative decoding with an untuned Qwen3-0.6B draft gave no speed-up on real validation prompts. A browser application screens a pasted note against pasted criteria. This is an educational prototype, not a clinical enrollment tool.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -44,18 +53,21 @@ clinical trial matching, LoRA, KV cache, attention, speculative decoding
 \section{Introduction}
 Matching a patient to a clinical trial means checking the patient against many inclusion and exclusion criteria. A useful assistant would, for each criterion, say whether the patient meets it and point to the note sentences that justify the answer. We study a small version of this problem with an open model that fits on a free Colab T4 GPU, and we use the project to implement and measure three inference techniques by hand: a key/value (KV) cache, a tiled attention with online softmax, and speculative decoding.
 
+\emph{Problem statement.} The input is a patient note whose sentences are numbered from 0, the type of one trial criterion (inclusion or exclusion) and the criterion text. The output is a JSON object with a \emph{label} and an ascending list of \emph{evidence ids}, the numbers of the note sentences that support the label (the list may be empty). Inclusion criteria take the labels \emph{included, not included, not enough information (NEI), not applicable}; exclusion criteria take \emph{excluded, not excluded, NEI, not applicable}. The task is scored per criterion against expert labels and expert evidence; a patient-level eligibility verdict is not part of the task and no gold verdicts exist.
+
 Contributions: (i) a leakage-controlled data pipeline with a strict JSON output format, a parser and metrics that treat invalid outputs and empty evidence explicitly; (ii) a QLoRA fine-tuned Qwen3-4B evaluated on validation and, once, on test; (iii) tested hand-written cached decoding, tiled attention and speculative decoding, benchmarked on a T4, including a documented case of fp16 near-tie mismatches; (iv) a browser application whose demo mode never presents invented output as a model prediction. The system is an educational prototype and must not be used for real patient care or trial enrollment.
 
 \section{Related Work}
-\emph{Trial matching.} The data are the criterion-level annotations released with TrialGPT \cite{trialgpt}, in which a large language model judges each criterion and cites note sentences. The release also contains GPT-4 predictions, which we treat as forbidden inputs (Section~\ref{sec:data}). \todo{check the TrialGPT claims against the paper}
+\emph{Trial matching.} The data are the criterion-level annotations released with TrialGPT \cite{trialgpt}, in which a large language model judges each criterion and cites supporting note sentences. The release also contains GPT-4 predictions, which we treat as forbidden inputs (Section~\ref{sec:data}).
 
 \emph{Models and fine-tuning.} We use Qwen3 \cite{qwen3}, LoRA adapters \cite{lora} and 4-bit base weights as in QLoRA \cite{qlora}.
 
-\emph{Efficient inference.} Attention follows \cite{vaswani}; the online softmax \cite{milakov} and its blockwise use in FlashAttention \cite{flashattention} motivate our tiled version, which is plain PyTorch and therefore not fused. Grouped-query attention \cite{gqa} and rotary embeddings \cite{rope} determine the size and indexing of the KV cache. Speculative decoding \cite{leviathan,chen2023} motivates our greedy draft-and-verify decoder. All references in this draft are marked VERIFY in the bibliography file because they could not be checked.
+\emph{Efficient inference.} Attention follows \cite{vaswani}; the online softmax \cite{milakov} and its blockwise use in FlashAttention \cite{flashattention} motivate our tiled version, which is plain PyTorch and therefore not fused. Grouped-query attention \cite{gqa} and rotary embeddings \cite{rope} determine the size and indexing of the KV cache. Speculative decoding \cite{leviathan,chen2023} motivates our greedy draft-and-verify decoder. Five of these references (Qwen3, LoRA, Attention Is All You Need, online softmax, speculative decoding by Leviathan et al.) are marked VERIFY in the bibliography file because their details could not be checked.
 
-\section{Data and Task}\label{sec:data}
+\section{Materials and Methods}
+\subsection{Dataset and split}\label{sec:data}
 The annotation set has 1,015 criterion rows from 53 patients and 103 trials, with 5 to 43 rows per patient and exactly one note per patient (6.2 sentences on average, 3 to 14). % results/metrics/data_inspection.json, docs/data_inspection.md
-There are 659 exclusion and 356 inclusion rows. Labels are kept as annotated: inclusion criteria use \emph{included, not included, not enough information (NEI), not applicable}; exclusion criteria use \emph{excluded, not excluded, NEI, not applicable}. The gold label is the expert label and the gold evidence the expert sentence list.
+There are 659 exclusion and 356 inclusion rows. The gold label is the expert label and the gold evidence the expert sentence list.
 
 \emph{Leakage control.} Four columns hold previous model outputs (\code{gpt4\_explanation}, \code{explanation\_correctness}, \code{gpt4\_sentences}, \code{gpt4\_eligibility}) and are removed from the processed files. The \code{training} column has unknown meaning and varies within 44 of 53 patients, so it is unused. % docs/decisions.md 2026-11-06
 Rows follow their patient: sorted patient ids are shuffled with seed 42 and the first 37, next 8 and last 8 patients form train, validation and test (603, 206, 206 rows). % docs/label_distribution.md, docs/decisions.md
@@ -83,43 +95,195 @@ excl.: not applicable & 23 & 11 & 12 & 46\\
 
 Table~\ref{tab:labels} shows the main difficulty: the labels are very imbalanced. ``Not excluded'' alone is 484 of 659 exclusion rows (73.4\%), ``excluded'' has 10 rows overall and \emph{none} in test, and inclusion ``not applicable'' has 9 rows. About 60\% of rows have empty gold evidence (0.601 in \path{docs/data_inspection.md}), so an empty evidence list is a valid and very common answer and is scored as such.
 
-\emph{Prompt and output.} The model sees only the numbered note sentences, the criterion type and the criterion text, and answers with a JSON object \code{\{"label": ..., "evidence\_ids": [...]\}} with ascending unique integer ids. No explanation is generated, because no gold explanations exist and the GPT-4 ones are forbidden. The parser never maps an invalid output to a valid label. % README.md (src/trialmatch/model/*)
-The longest prompt plus target is 618 tokens with the Qwen chat template, so a maximum length of 768 truncates nothing. % results/metrics/token_stats.json, configs/train.yaml
+\subsection{Prompt and output format}
+The model sees only the numbered note sentences, the criterion type and the criterion text, and answers with a JSON object \code{\{"label": ..., "evidence\_ids": [...]\}} with ascending unique integer ids. No explanation is generated, because no gold explanations exist and the GPT-4 ones are forbidden. The parser never maps an invalid output to a valid label. % README.md (src/trialmatch/model/*)
+The longest prompt plus target is 618 tokens with the Qwen chat template (thinking mode disabled), so a maximum length of 768 truncates nothing. % results/metrics/token_stats.json, configs/train.yaml, docs/decisions.md
 
-\section{Methods}
+\subsection{Model selection}
+\begin{table*}[t]
+\caption{Candidate models. ``Loaded'' parameter counts come from the benchmark environment; the generated hub-metadata table lists 0.75 B for the draft (see text). Llama figures are the author's notes and were not measured. Sources: \protect\path{docs/model_facts.md}, \protect\path{docs/memory_estimate.md}, \protect\path{results/benchmarks/speculative_20261108_113154.json}.}\label{tab:models}
+\centering\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llrrrrrl}
+\toprule
+model & role & params (B) & layers & hidden & query / KV heads & fp16 weights (GiB) & status\\
+\midrule
+Qwen3-4B & target & 4.022 (loaded) & 36 & 2560 & 32 / 8 & 7.49 & chosen, fine-tuned\\
+Qwen3-0.6B & draft & 0.596 (loaded) & 28 & 1024 & 16 / 8 & 1.11 (arithmetic) & chosen, untuned\\
+Qwen3-1.7B & fallback & 2.03 (hub metadata) & 28 & 2048 & 16 / 8 & 3.78 & never trained\\
+Llama-3.2-3B / 1B & alternative & \todo{about 3.2 / 1.23} & \todo{28 / 16} & --- & \todo{24 / 8 (3B)} & not measured & rejected: gated (401)\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Table~\ref{tab:models} compares the candidates. We chose Qwen3-4B as the target and Qwen3-0.6B as the speculative draft. Both are open (Apache-2.0) and ungated, share one tokenizer (identical on a 200-string check, \path{docs/decisions.md}) and have 36 and 28 layers, a size ratio of $4.022/0.596=6.7$. The target's fp16 weights are estimated at 7.49 GiB; with the draft loaded the measured peak was about 9.08 GiB for speculative runs and 8.81 GiB for plain runs on the 14.56 GiB T4. % results/benchmarks/speculative_20261108_113154.json peak_mem_bytes_median, 512 input / 128 new tokens
+Qwen3-1.7B was kept as a fallback if the 3-epoch projection exceeded 90 minutes; it was never needed. The Llama-3.2 pair (3B target, 1B draft) was rejected because both repositories were gated and returned HTTP 401, so nothing could be measured; its remaining figures are from the author's notes and unverified. Reasons that follow from those notes are weaker: a smaller target-to-draft ratio (about 2.6) would leave less room for a speculative speed-up, and a 128K context has no use when the longest prompt plus target is 618 tokens. The 0.75 B listed for the draft in the generated hub-metadata table differs from the 0.596 B reported by the loaded model; we use the loaded count and do not know the cause. \todo{why the hub metadata count differs from the loaded parameter count}
+Qwen3 is a decoder-only model with grouped-query attention (4 query heads per KV head for the 4B model), rotary embeddings, RMSNorm layers and an additional per-head RMSNorm on queries and keys (\code{q\_norm}, \code{k\_norm}) before the rotation, as read in \code{modeling\_qwen3.py} of transformers 5.22.2. The embeddings are tied to the output layer. Our standalone attention functions do not implement the query/key normalisation and are not used inside the model; the cached and speculative decoders call the Hugging Face model, so its own attention runs.
+
+\subsection{System and model architecture}
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=2pt, align=center, font=\scriptsize, minimum height=9mm, text width=2.5cm, fill=blue!6},
+  gbox/.style={box, fill=green!8},
+  obox/.style={box, fill=orange!12},
+  arr/.style={-{Stealth[length=2mm]}, thick},
+  node distance=6mm]
+\node[box] (a) {TrialGPT annotations\\1,015 rows, 53 patients};
+\node[box, right=of a] (b) {Leakage filter,\\patient-grouped split\\37 / 8 / 8};
+\node[box, right=of b] (c) {Prompt builder:\\numbered note +\\criterion};
+\node[box, right=of c] (d) {QLoRA fine-tuning\\Qwen3-4B, $r{=}16$,\\3 epochs};
+\node[box, right=of d] (e) {LoRA adapter\\(trained on a 4-bit base)};
+\node[box, below=9mm of c, xshift=1.6cm] (f) {Merge into fp16\\\texttt{merge\_and\_unload}\\(one model for all runs)};
+\node[gbox, below=11mm of f] (h) {KV-cache decoder\\(Alg.~\ref{alg:kv})};
+\node[gbox, left=of h] (g) {Evaluation\\val: 4-bit and merged\\test: once, merged};
+\node[obox, left=of g] (t) {Tiled attention\\(standalone study,\\Alg.~\ref{alg:tiled})};
+\node[gbox, right=of h] (i) {Speculative decoder\\+ Qwen3-0.6B draft\\(Alg.~\ref{alg:spec})};
+\node[gbox, right=of i] (j) {Browser app\\workspace +\\Inference Lab};
+\draw[arr] (a) -- (b); \draw[arr] (b) -- (c); \draw[arr] (c) -- (d); \draw[arr] (d) -- (e);
+\draw[arr] (e.south) |- (f.east);
+\draw[arr] (f.south) -- (h.north);
+\draw[arr] (f.south) -- ++(0,-4mm) -| (g.north);
+\draw[arr] (f.south) -- ++(0,-4mm) -| (i.north);
+\draw[arr] (f.south) -- ++(0,-4mm) -| (j.north);
+\draw[arr, dashed] (f.west) -| node[pos=0.25, above, font=\scriptsize] {same head layout only} (t.north);
+\end{tikzpicture}
+\caption{System architecture. Data are split by patient, a LoRA adapter is trained on a 4-bit Qwen3-4B, merged into fp16 and used by the evaluation runner, the two hand-written decoders and the browser app; the tiled attention study runs on random tensors with the model's head layout and is not part of the model.}\label{fig:system}
+\end{figure*}
+
+Fig.~\ref{fig:system} shows how the parts connect. Everything on the lower row uses the single merged fp16 model, which makes the cached, uncached and speculative timings comparable and keeps quantisation overhead out of the numbers; the cost is that validation was also run on the 4-bit-base model and the two differ by three rows (Section~\ref{sec:results}). The tiled attention study is deliberately separate: it benchmarks the attention operation with the 32/8 head layout of Qwen3-4B but does not replace the model's attention.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=2pt, align=center, font=\scriptsize, minimum height=9mm, text width=5.2cm, fill=blue!6},
+  gbox/.style={box, fill=green!8},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+\node[font=\small\bfseries] at (0,7.7) {Target: Qwen3-4B decoder};
+\node[box] (emb) at (0,0) {Token embedding (tied with the output layer)};
+\node[box] (n1) at (0,1.9) {RMSNorm $\rightarrow$ self-attention\\per-head q/k RMSNorm, RoPE,\\32 query / 8 KV heads, 8-head KV cache};
+\node[box] (n2) at (0,3.8) {RMSNorm $\rightarrow$ gated MLP\\(gate / up / down projections)};
+\node[draw, dashed, rounded corners=3pt, fit=(n1)(n2), inner sep=3mm, label={[font=\scriptsize]left:$\times 36$}] (blk) {};
+\node[box] (fin) at (0,5.8) {final RMSNorm, output layer};
+\node[box] (out) at (0,7.0) {argmax $\rightarrow$ next token};
+\draw[arr] (emb) -- (blk.south); \draw[arr] (blk.north) -- (fin); \draw[arr] (fin) -- (out);
+\node[font=\small\bfseries] at (8.6,7.7) {Speculative loop (batch size 1)};
+\node[gbox] (s1) at (8.6,6.4) {Draft Qwen3-0.6B (28 layers)\\feeds $seq[draft\_len{:}]$, proposes $d_1..d_k$\\with its own KV cache};
+\node[gbox] (s2) at (8.6,4.5) {Target Qwen3-4B: ONE forward over\\$[last, d_1..d_k]$ at positions $n..n{+}k$\\$g_i=\arg\max$ of logits row $i$};
+\node[gbox] (s3) at (8.6,2.6) {Accept longest prefix $m$ with $d_{i+1}=g_i$\\emit $d_1..d_m$ and $g_m$\\(correction, or bonus if $m=k$)};
+\node[gbox] (s4) at (8.6,0.7) {Crop both KV caches\\target to $|seq|-1$, draft to $\min(draft\_len,|seq|-1)$};
+\draw[arr] (s1) -- (s2); \draw[arr] (s2) -- (s3); \draw[arr] (s3) -- (s4);
+\draw[arr] (s4.east) -- ++(0.8,0) |- (s1.east);
+\draw[arr, dashed, gray] (n1.east) -- ++(0.7,0) |- (s2.west) node[pos=0.25, right, font=\scriptsize, text=gray] {};
+\end{tikzpicture}
+\caption{Left: the Qwen3-4B decoder (36 layers) as read from \code{modeling\_qwen3.py} and \protect\path{docs/model_facts.md}. Right: one iteration of our speculative decoder (\protect\path{src/trialmatch/inference/speculative/speculative_decode.py}); the dashed line marks that the verify step is the target model's ordinary forward pass with its KV cache.}\label{fig:model}
+\end{figure*}
+
+Fig.~\ref{fig:model} (left) lists what the decoders have to respect: grouped-query attention makes the cache $2\times36\times8\times128\times2=147{,}456$ bytes per token in fp16, a quarter of what 32 KV heads would need, and rotary embeddings require the explicit position of every fed token. Fig.~\ref{fig:model} (right) shows the speculative iteration; the crop is the step that keeps both caches consistent with the accepted tokens.
+
 \subsection{Fine-tuning}
-We fine-tune Qwen3-4B (4.02 B parameters, 36 layers, 32 query and 8 key/value heads) % docs/model_facts.md
-with QLoRA: NF4 4-bit base weights, fp16 compute, LoRA rank 16, alpha 32, dropout 0.05 on the attention and MLP projections only (embeddings are tied to the output layer, so \code{lm\_head} is not adapted). Learning rate $2\times10^{-4}$, cosine schedule, 5\% warm-up, 3 epochs, per-device batch 4 with 4 accumulation steps (effective batch 16), gradient checkpointing, seed 42. % configs/train.yaml
-The loss covers the answer JSON and the end token only. Qwen3-0.6B is the speculative draft; Qwen3-1.7B was defined as a fallback but never trained. % docs/decisions.md 2026-11-07
+We fine-tune Qwen3-4B with QLoRA: NF4 4-bit base weights, fp16 compute, LoRA rank 16, alpha 32, dropout 0.05 on the attention and MLP projections only (embeddings are tied to the output layer, so the output layer is not adapted). Learning rate $2\times10^{-4}$, cosine schedule, 5\% warm-up, 3 epochs, per-device batch 4 with 4 accumulation steps (effective batch 16), gradient checkpointing, seed 42. % configs/train.yaml
+The loss covers the answer JSON and the end token only.
 
-\subsection{Evaluation protocol and metrics}
+\subsection{Evaluation protocol and metrics}\label{sec:metrics}
 All systems use greedy decoding with at most 64 new tokens and the same prompt. % configs/train.yaml
-Accuracy counts every row; an invalid output is a separate, always-wrong prediction. Macro-F1 is reported over the classes present in the gold labels and over the full label set; they differ when a class has no gold rows. Evidence is scored per row as a set of sentence ids: both empty scores 1, exactly one empty scores 0; micro-F1 pools sentence counts, macro-F1 averages rows; each is reported including and excluding rows with empty gold evidence. The baseline predicts the training-majority label per criterion type and always-empty evidence. % docs/decisions.md 2026-11-07
+With gold label $y_i$ and prediction $\hat y_i$ over $N$ rows, accuracy is $\frac1N\sum_i[\hat y_i=y_i]$; an invalid output is a separate, always-wrong prediction. For a class $c$, $P_c=\frac{TP_c}{TP_c+FP_c}$, $R_c=\frac{TP_c}{TP_c+FN_c}$ and $F1_c=\frac{2P_cR_c}{P_c+R_c}$, taken as 0 when undefined. Macro-F1 is averaged either over the classes present in the gold labels, $\mathcal C_{\mathrm{gold}}$, or over the full label set $\mathcal C$ of the scope:
+\begin{equation}
+\mathrm{F1}_{\mathrm{present}}=\tfrac{1}{|\mathcal C_{\mathrm{gold}}|}\sum_{c\in\mathcal C_{\mathrm{gold}}}F1_c,\quad
+\mathrm{F1}_{\mathrm{full}}=\tfrac{1}{|\mathcal C|}\sum_{c\in\mathcal C}F1_c .\label{eq:macro}
+\end{equation}
+The two differ when a class has no gold rows. For evidence, with gold sentence set $E$ and predicted set $\hat E$ per row, $P=\frac{|E\cap\hat E|}{|\hat E|}$, $R=\frac{|E\cap\hat E|}{|E|}$ and $F1$ as above, with the rule that $E=\hat E=\emptyset$ scores 1, exactly one of them empty scores 0, and an invalid output scores 0. Micro-F1 applies the same formula to the pooled sentence counts, macro-F1 averages the per-row values; each is reported over all rows (incl.) and over rows with non-empty gold evidence (excl.). For the decoders, the speed-up is $S=T_{\mathrm{plain}}/T_{\mathrm{method}}$ (medians of repeated runs) and the speculative acceptance rate is accepted candidates divided by proposed candidates (\path{src/trialmatch/inference/speculative/stats.py}). The baseline predicts the training-majority label per criterion type and always-empty evidence. % docs/decisions.md 2026-11-07
 The test split needs an explicit confirmation flag and a single run; it was evaluated once with the merged model. % docs/decisions.md 2026-11-07, results/eval/test_split_evaluated.json
 
 \subsection{Merged fp16 model}
 The adapter was trained on a 4-bit base. For all inference benchmarks we merge it into fp16 weights (\code{merge\_and\_unload}), giving one model of 4,022,468,096 parameters. % results/logs/merge_verify.json, results/benchmarks/kv_cache_20261107_192136.json
 On four validation prompts the merged and unmerged logits differ by at most 0.048 and the top-1 token agrees on all four. % results/logs/merge_verify.json
 
-\subsection{Manual KV-cache decoder}
-\code{cached\_greedy\_decode} (\path{src/trialmatch/inference/kv_cache/cached_decode.py}) prefills the prompt once, keeps \code{past\_key\_values} itself, then feeds only the newest token with explicit \code{position\_ids} (tokens so far), \code{cache\_position} and a 2-D mask that grows by one column per step, asserting that the cache grows by exactly one position. \code{reference\_greedy\_decode} re-runs the full forward at every step. Both use argmax.
+\subsection{Attention and decoding algorithms}
+\emph{KV-cache decoding.} \code{cached\_greedy\_decode} (\path{src/trialmatch/inference/kv_cache/cached_decode.py}) is Algorithm~\ref{alg:kv}: one prefill over the prompt, then one-token steps that pass the cache, the true position and a mask that grows by one column. The reference decoder runs the full forward pass at every step.
 
-\subsection{Tiled attention}
-\code{tiled\_attention} processes keys in blocks and keeps a running maximum $m$, normaliser $l$ and output $o$; on a new block it rescales by $\alpha=\exp(m-m_{\mathrm{new}})$, so $o/l$ is softmax attention over the keys seen so far and exact after the last block. Blocks above the causal diagonal are skipped. Query $i$ sees key $j$ iff $j\le i+(S_k-S_q)$; arithmetic is fp32 with the output cast back; grouped-query attention repeats each KV head for its query group. The reference materialises the full score matrix; torch SDPA backends are comparison only. % src/trialmatch/inference/attention/*.py
+\begin{algorithm}[t]
+\caption{KV-cache greedy decoding}\label{alg:kv}
+\small
+\begin{algorithmic}[1]
+\REQUIRE prompt $x_{1..T}$, budget $N$
+\STATE prefill: logits, cache $\leftarrow$ model$(x)$; emit $t_1=\arg\max$; $pos\leftarrow T$
+\FOR{$i=2$ \TO $N$ \textbf{(stop at EOS)}}
+\STATE mask $\leftarrow$ [mask, 1] \COMMENT{length $|cache|+1$}
+\STATE logits, cache $\leftarrow$ model$(t_{i-1}$, $position\_ids{=}pos$, $cache\_position{=}|cache|$, cache$)$
+\STATE emit $t_i=\arg\max$ logits; $pos\leftarrow pos+1$
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
 
-\subsection{Speculative decoding}
-\code{speculative\_greedy\_decode} (batch size 1) lets the draft propose $k$ tokens, verifies them with one target forward over the last token plus the candidates, accepts the longest matching prefix, emits the target's own token as correction (or bonus when all $k$ match) and crops both caches to the accepted length. Its output equals plain greedy decoding of the target up to floating-point ties. % src/trialmatch/inference/speculative/speculative_decode.py
+\emph{Tiled attention.} \code{tiled\_attention} (Algorithm~\ref{alg:tiled}) keeps a running maximum $m$, normaliser $l$ and output $o$ per query block; on a new key block it rescales by $\alpha=\exp(m-m')$, so $o/l$ is the softmax attention over the keys seen so far and exact after the last block. Key blocks above the causal diagonal are skipped. Query $i$ sees key $j$ iff $j\le i+(S_k-S_q)$; arithmetic is fp32 with the output cast back; grouped-query attention repeats each KV head for its query group. The reference materialises the full score matrix; torch SDPA backends are comparison only. % src/trialmatch/inference/attention/*.py
 
-\subsection{Application}
-A FastAPI backend with one static page offers a screening workspace (per-criterion cards with label badge, cited sentences, template explanations and a rule-based preliminary outcome stated not to be a ground-truth label) and an Inference Lab. Demo mode answers only from cached real validation predictions and otherwise says it cannot predict. % docs/decisions.md 2026-11-08, docs/app_notes.md
+\begin{algorithm}[t]
+\caption{Tiled online-softmax attention (one query block $q$)}\label{alg:tiled}
+\small
+\begin{algorithmic}[1]
+\STATE $m\leftarrow-\infty,\ l\leftarrow 0,\ o\leftarrow 0$
+\FOR{each key block $(K_j,V_j)$ not above the causal diagonal}
+\STATE $s\leftarrow qK_j^{\top}/\sqrt d$ \COMMENT{mask on the diagonal block}
+\STATE $m'\leftarrow\max(m,\mathrm{rowmax}(s))$; $\alpha\leftarrow e^{m-m'}$; $p\leftarrow e^{s-m'}$
+\STATE $l\leftarrow\alpha l+\mathrm{rowsum}(p)$; $o\leftarrow\alpha o+pV_j$; $m\leftarrow m'$
+\ENDFOR
+\RETURN $o/l$
+\end{algorithmic}
+\end{algorithm}
+
+\emph{Speculative decoding.} \code{speculative\_greedy\_decode} (batch size 1, Algorithm~\ref{alg:spec}) lets the draft propose $k$ tokens, verifies them with one target forward over the last token plus the candidates, accepts the longest matching prefix, emits the target's own token as correction (or bonus when all $k$ match) and crops both caches. Its output equals plain greedy decoding of the target up to floating-point ties. % src/trialmatch/inference/speculative/speculative_decode.py
+
+\begin{algorithm}[t]
+\caption{Greedy speculative decoding (one iteration)}\label{alg:spec}
+\small
+\begin{algorithmic}[1]
+\REQUIRE $seq$ (target cache $=|seq|-1$), $k$, remaining budget $r$
+\STATE $k'\leftarrow\min(k,r-1)$
+\STATE draft feeds $seq[draft\_len{:}]$, then proposes $d_1..d_{k'}$ greedily
+\STATE $g\leftarrow\arg\max$ target$([seq_{-1},d_1..d_{k'}])$ \COMMENT{one forward}
+\STATE $m\leftarrow$ longest prefix with $d_{i+1}=g_i$
+\STATE append $d_1..d_m$ and $g_m$ to $seq$ (cut at EOS or budget)
+\STATE crop target cache to $|seq|-1$, draft cache to $\min(draft\_len,|seq|-1)$
+\end{algorithmic}
+\end{algorithm}
+
+Algorithm~\ref{alg:kv} is the baseline for the speed-ups in Section~\ref{sec:kv}; Algorithm~\ref{alg:tiled} is evaluated on its own in Section~\ref{sec:att}; Algorithm~\ref{alg:spec} yields between 1 and $k+1$ tokens per target forward, the quantity reported as ``tokens per verify'' in Section~\ref{sec:spec}.
+
+\subsection{Application workflow}
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=2pt, align=center, font=\scriptsize, minimum height=9mm, text width=2.4cm, fill=blue!6},
+  gbox/.style={box, fill=green!8},
+  obox/.style={box, fill=orange!12},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+\node[box] (note) at (0,1.6) {Patient note\\paste or val example};
+\node[box] (spl) at (3,1.6) {Sentence splitter\\numbers $[S0]\dots[Sn]$};
+\node[box] (cri) at (0,0) {Criteria\\paste or val trial};
+\node[box] (par) at (3,0) {Criteria parser\\Inclusion / Exclusion\\headings, bullets};
+\node[gbox] (pro) at (6,0.8) {Per-criterion prompt\\(training format)};
+\node[gbox] (eng) at (9,0.8) {Engine\\plain / KV-cache /\\speculative};
+\node[gbox] (jsn) at (12,0.8) {JSON parser\\invalid is never\\remapped};
+\node[obox] (crd) at (15,0.8) {Criterion card\\badge by outcome,\\cited sentences, flags};
+\node[obox] (agg) at (15,-1.1) {Aggregation rule\\ineligible / undetermined\\/ eligible (preliminary)};
+\node[obox] (exp) at (12,-1.1) {Export\\JSON, HTML, Markdown,\\PDF; saved report};
+\draw[arr] (note) -- (spl); \draw[arr] (cri) -- (par);
+\draw[arr] (spl.east) -| (pro.north); \draw[arr] (par.east) -| (pro.south);
+\draw[arr] (pro) -- (eng); \draw[arr] (eng) -- (jsn); \draw[arr] (jsn) -- (crd);
+\draw[arr] (crd) -- (agg); \draw[arr] (agg) -- (exp);
+\end{tikzpicture}
+\caption{Application workflow of the screening workspace. Notes and criteria are numbered or parsed, each criterion is screened separately with the selected engine, the JSON answer is parsed, a card is built from the label and the cited sentences (template explanation, no model call), and a rule aggregates the cards into a preliminary outcome.}\label{fig:workflow}
+\end{figure*}
+
+A FastAPI backend with one static page offers a screening workspace and an Inference Lab (Fig.~\ref{fig:workflow}). A pasted note without numbering is split into sentences and numbered in the dataset format, so the model sees the same layout as in training; criteria are parsed from ``Inclusion Criteria:'' and ``Exclusion Criteria:'' sections. Each card shows a badge chosen by \emph{outcome} (for exclusion criteria ``not excluded'' is the favourable one), the cited sentences, a template explanation and flags for missing information or invalid output. The rule is: any ``excluded'' or ``not included'' gives ``likely ineligible (preliminary)''; otherwise any NEI, invalid or errored criterion gives ``undetermined''; otherwise ``likely eligible (preliminary)''; ``not applicable'' criteria are ignored. The app always states that this outcome is not a ground-truth label. Demo mode answers only from cached real validation predictions and otherwise says it cannot predict. % docs/decisions.md 2026-11-08, docs/app_notes.md
 
 \section{Experimental Setup}
 Training and benchmarks ran on a Colab Tesla T4 (14.56 GiB) with Python 3.13, torch 2.14.1+cu130, transformers 5.22.1, peft 0.21.2 and bitsandbytes 0.50.2. % results/logs/env_qwen3-4b_qlora_4bit.json
 Training took about 33 minutes (114 optimiser steps; log from 10:40:44 to 11:13:53). % results/logs/train_qwen3-4b_qlora_4bit.jsonl
 \emph{KV cache:} synthetic inputs of 128, 256, 512, 1024 tokens with 16, 64, 128 new tokens (EOS disabled) and 16 real validation prompts, 1 warm-up and 5 repeats, decoders interleaved. \emph{Attention:} random fp16 inputs, 32 query heads, 8 KV heads, head dimension 128, causal, lengths 128 to 4096, block sizes 32 to 256, 2 warm-ups, 10 repeats, error against an fp32 reference. \emph{Speculative:} untuned Qwen3-0.6B draft, $k\in\{1,2,4,8\}$, synthetic inputs of 128, 256, 512 tokens with 16/64/128 new tokens and 8 validation prompts, 3 repeats. % benchmark json args
-Timings are medians unless stated; attention memory is the peak above the run's starting level.
+Timings are medians unless stated; attention memory is the peak above the run's starting level. The application screenshots were taken in real mode on the same kind of Colab T4 (header ``cuda, float16'').
 
-\section{Results and Discussion}
+\section{Results and Discussion}\label{sec:results}
 \subsection{Classification and evidence}
 \begin{table}[t]
 \caption{Validation split (206 rows). Evid.\ F1 is micro-F1 over all rows (incl.) and over rows with non-empty gold evidence (excl.). Fine-tuned = 4-bit-base model. Source: \protect\path{results/metrics/val_comparison.md}.}\label{tab:val}
@@ -138,7 +302,7 @@ fine-tuned & 0.748 & 0.549 & 0.529 & 0.637 & 0.000\\
 Table~\ref{tab:val} shows that the majority baseline reaches accuracy 0.621, almost the base model's 0.626, because ``not excluded'' dominates the exclusion rows; macro-F1 separates them (0.215 vs 0.312). Fine-tuning raises accuracy by 0.122 and macro-F1 by 0.237 over the base model, and evidence micro-F1 from 0.359 to 0.529. No system produced an invalid output on validation.
 
 \begin{table}[t]
-\caption{Test split (206 rows, 8 patients, one evaluation). F1 (present) / F1 (full) are macro-F1 over present and over all classes; they differ because ``excluded'' has no gold test rows. Fine-tuned = merged fp16 model. Source: \protect\path{results/metrics/test_comparison.md}.}\label{tab:test}
+\caption{Test split (206 rows, 8 patients, one evaluation). F1 pres.\ / F1 full are macro-F1 over present and over all classes; they differ because ``excluded'' has no gold test rows. Fine-tuned = merged fp16 model. Source: \protect\path{results/metrics/test_comparison.md}.}\label{tab:test}
 \centering\footnotesize\setlength{\tabcolsep}{2pt}
 \begin{tabular}{lrrrrrr}
 \toprule
@@ -151,7 +315,7 @@ fine-tuned (merged) & 0.767 & 0.726 & 0.605 & 0.578 & 0.663 & 0.000\\
 \end{tabular}
 \end{table}
 
-On test (Table~\ref{tab:test}) the ordering is the same: accuracy 0.767 against 0.665 for the base model (+0.102) and 0.626 for the baseline; macro-F1 over present classes is 0.726 against 0.523 and 0.272. Counting the absent ``excluded'' class as F1 of 0 lowers the fine-tuned macro-F1 to 0.605, so both numbers are reported. Evidence micro-F1 rises from 0.376 to 0.578 over all rows and from 0.550 to 0.663 on rows with non-empty gold evidence. By criterion type, the fine-tuned model has accuracy 0.813 on the 75 inclusion rows and 0.740 on the 131 exclusion rows, and evidence micro-F1 over all rows of 0.676 for inclusion but only 0.314 for exclusion. % results/metrics/test_comparison.md
+On test (Table~\ref{tab:test}) the ordering is the same: accuracy 0.767 against 0.665 for the base model (+0.102) and 0.626 for the baseline; macro-F1 over present classes (Eq.~\ref{eq:macro}) is 0.726 against 0.523 and 0.272. Counting the absent ``excluded'' class as F1 of 0 lowers the fine-tuned macro-F1 to 0.605, so both numbers are reported. Evidence micro-F1 rises from 0.376 to 0.578 over all rows and from 0.550 to 0.663 on rows with non-empty gold evidence. By criterion type, the fine-tuned model has accuracy 0.813 on the 75 inclusion rows and 0.740 on the 131 exclusion rows, and evidence micro-F1 over all rows of 0.676 for inclusion but only 0.314 for exclusion. % results/metrics/test_comparison.md
 Validation and test use different model variants: the merged model scored 0.733 on validation against 0.748, three rows of 206. % results/eval/finetuned_merged_val_summary.json, results/eval/finetuned_val_summary.json
 
 \begin{figure}[t]
@@ -161,8 +325,7 @@ Validation and test use different model variants: the merged model scored 0.733 
 \end{figure}
 
 Fig.~\ref{fig:conf} locates the dominant error. Of 66 gold-NEI rows (36 + 24 + 4 + 2), 36 are correct but 24 are predicted ``not excluded'' (4 ``not applicable'', 2 ``included''); in contrast 86 of 91 gold ``not excluded'' rows are correct. The per-class table agrees: NEI on exclusion criteria has precision 0.75 but recall 0.11 on test. % results/metrics/test_comparison.md; figure counts read from the image
-The model seems to default to ``not excluded'' when a criterion is not discussed in the note, which is the training majority (75.3\% of train exclusion rows, \path{docs/label_distribution.md}). Of the 26 test rows with gold NEI and a decided prediction, 18 come from one patient, who accounts for 25 of the 81 test errors. % results/error_analysis/test_finetuned_merged_errors.csv
-Drafted error cases are in \path{docs/error_analysis.md}: polarity errors on the rare ``excluded'' class, over-citation of the whole note, and citation of the boilerplate consent sentence (4 validation rows, 1 test row). The causes given there are hypotheses (``likely'') because we cannot inspect the model.
+The model seems to default to ``not excluded'' when a criterion is not discussed in the note, which is the training majority (75.3\% of train exclusion rows, \path{docs/label_distribution.md}).
 
 \begin{figure}[t]
 \centering
@@ -172,7 +335,54 @@ Drafted error cases are in \path{docs/error_analysis.md}: polarity errors on the
 
 Fig.~\ref{fig:train} shows the training loss falling from 0.473 at step 1 to 0.018 at step 114 while the validation loss stays near 0.12 (0.124, 0.121, 0.123 after epochs 1 to 3). A flat validation loss with a falling training loss is consistent with overfitting a 603-row training set; we ran no ablation (fewer epochs, other ranks) to confirm this. % results/logs/train_qwen3-4b_qlora_4bit.jsonl
 
-\subsection{KV cache}
+\subsection{Error analysis}
+\begin{table}[t]
+\caption{Rows per error category (a row can have several). Val: 4-bit-base model, test: merged model. Sources: \protect\path{results/error_analysis/val_finetuned_error_summary.csv} and counts from \protect\path{results/error_analysis/test_finetuned_merged_errors.csv}.}\label{tab:errcat}
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrr}
+\toprule
+category & val & test\\
+\midrule
+NEI gold, decided prediction & 18 & 26\\
+decided gold, NEI prediction & 16 & 7\\
+applicable vs.\ not applicable & 16 & 13\\
+polarity swap & 2 & 2\\
+evidence wrong / missing / extra & 7 / 27 / 32 & 3 / 22 / 20\\
+cites consent sentence & 4 & 1\\
+any error (of 206) & 92 & 81\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table*}[t]
+\caption{Twelve drafted error cases with hedged causes (hypotheses; the model cannot be inspected). Pred.\ = predicted label; [..] = cited sentence ids. Source: \protect\path{results/error_analysis/val_finetuned_errors.csv} and \protect\path{test_finetuned_merged_errors.csv}, column \code{my\_notes}; full text in \protect\path{docs/error_analysis.md}.}\label{tab:errors}
+\centering\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llllp{3.4cm}p{6.6cm}}
+\toprule
+split & id & type & gold $\rightarrow$ pred. & category & likely cause\\
+\midrule
+val & 8 & excl. & NEI [0-2] $\rightarrow$ not excluded [0-7] & NEI$\rightarrow$decided; evidence extra & ``Unstable angina'' is not stated; a missing diagnosis is probably read as ``not excluded'' and the whole note is cited\\
+val & 19 & excl. & NEI [] $\rightarrow$ not excluded [] & NEI$\rightarrow$decided & criterion probably never mentioned; default to the majority label\\
+val & 263 & excl. & excluded [5] $\rightarrow$ not excluded [1,4] & polarity; evidence wrong & ``vesicular mole'' not linked to ``uterine pathology''; rare class (8 train rows)\\
+val & 935 & incl. & not included [3] $\rightarrow$ included [3] & polarity & same sentence cited; likely matched ``culture of the sputum'' to ``culture positive'' without checking the organism\\
+val & 375 & incl. & NEI [0,1] $\rightarrow$ included [0,1,6] & NEI$\rightarrow$decided; consent cited & boilerplate consent sentence probably taken as support\\
+val & 13 & excl. & not excluded [4] $\rightarrow$ not excluded [] & evidence missing & negation sentence skipped; 75.6\% of ``not excluded'' rows have empty gold evidence\\
+val & 5 & excl. & not excluded [] $\rightarrow$ not excluded [3] & evidence extra & a topically related sentence is over-cited\\
+test & 392 & excl. & NEI [] $\rightarrow$ not excluded [] & NEI$\rightarrow$decided & one of 18 such rows in one patient; same default for never-mentioned criteria\\
+test & 185 & incl. & included [2,3] $\rightarrow$ not included [] & polarity; evidence missing & shock not inferred from vital signs (BP 80/60, tachycardia)\\
+test & 184 & excl. & not excluded [] $\rightarrow$ excluded [0-2] & polarity; evidence extra & vague criterion (``other inappropriate situation'') mapped to the acute complication\\
+test & 381 & incl. & included [0] $\rightarrow$ included [4] & evidence wrong; consent cited & lexical overlap on ``informed consent'' with the boilerplate sentence\\
+test & 193 & excl. & NEI [0-4] $\rightarrow$ not excluded [] & NEI$\rightarrow$decided; evidence missing & ``moribund'' not stated; model judged nothing indicates it\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Table~\ref{tab:errcat} counts the categories: 92 of 206 validation rows and 81 of 206 test rows have at least one error, but label errors alone are 52 (val) and 48 (test) rows, matching the accuracies 0.748 and 0.767; the rest are right labels with a wrong evidence set. The largest label category on test is NEI answered with a decided label (26 rows), and 18 of those come from one patient, who accounts for 25 of the 81 test errors. % results/error_analysis/test_finetuned_merged_errors.csv
+Table~\ref{tab:errors} shows representative cases. The exclusion NEI misses (val 8 and 19, test 392 and 193) share one pattern: the criterion is not discussed in the note and the model answers with the majority label; the two polarity swaps on the rare ``excluded'' class (val 263, test 184) and the inclusion swaps (val 935, test 185) need a small inference the model does not make; and the consent sentence is cited in 4 validation rows and 1 test row (val 375, test 381), the planned check of the boilerplate sentence. Evidence errors with a correct label (val 13 and 5) are mostly over- or under-citation. All causes are hypotheses.
+
+\emph{Observations in the application.} Using the app we observed a myocardial infarction \emph{three months} ago labelled ``not excluded'' for a criterion excluding a myocardial infarction within six months, and a criterion never mentioned in the note labelled ``not excluded''. The screenshots of that session (Fig.~\ref{fig:app1}) show the note sentence S2 (``myocardial infarction 3 months ago'') highlighted and a summary with 0 decisive-negative criteria and 8 favourable ones, which is consistent with the first observation; the exclusion criteria themselves are not visible in the screenshots. \todo{attach a screenshot of the myocardial infarction criterion card} Both observations point at the same weakness: for exclusion criteria the model treats missing information as absence, and it does not compare a time window in the criterion with a time in the note.
+
+\subsection{KV cache}\label{sec:kv}
 \begin{table}[t]
 \caption{Cached vs.\ uncached greedy decoding on the T4: median total time (s) and speed-up (our division of medians). Source: \protect\path{results/benchmarks/kv_cache_20261107_192136.json}.}\label{tab:kv}
 \centering\small\setlength{\tabcolsep}{3pt}
@@ -199,9 +409,9 @@ Table~\ref{tab:kv} and Fig.~\ref{fig:kv} show that the cached decode time per to
 \caption{Tokens per second and decode time, cached vs.\ uncached, by input length. Source: \protect\path{results/benchmarks/kv_cache_20261107_192136.png}.}\label{fig:kv}
 \end{figure*}
 
-\emph{fp16 near-tie.} One of the 12 synthetic cells (256 input, 128 new tokens) produced different tokens: the first mismatch is at step 103 with a maximum logit difference of 0.0293. All other synthetic cells and all 16 validation prompts matched. We read this as a rounding effect (prefill and single-token steps use different matrix shapes) rather than a logic error, since the same decoders agree exactly in fp32 tests on a tiny model; we did not isolate the cause, and the report does not record the top-1/top-2 margin at that step. \todo{margin at the mismatch step}
+\emph{fp16 near-tie.} One of the 12 synthetic cells (256 input, 128 new tokens) produced different tokens: the first mismatch is at step 103 with a maximum logit difference of 0.0293. All other synthetic cells and all 16 validation prompts matched. We read this as a rounding effect (prefill and single-token steps use different matrix shapes) rather than a logic error, since the same decoders agree exactly in fp32 tests on a tiny model; we did not isolate the cause, and the report does not record the top-1/top-2 margin at that step. \todo{margin at the mismatch step} In contrast, the negative test that gives every decode step position 0 (tiny random model) diverges at the first decode step with a logit difference of 3.505 (pytest output supplied by the author, not stored in the repo), so a wrong position is far from a near-tie.
 
-\subsection{Tiled attention}
+\subsection{Tiled attention}\label{sec:att}
 \begin{table}[t]
 \caption{Attention on the T4 (fp16, batch 1, 32 query / 8 KV heads, head dim 128): median ms / peak MiB above start. Source: \protect\path{results/benchmarks/attention_20261107_193238.json}.}\label{tab:att}
 \centering\footnotesize\setlength{\tabcolsep}{2.5pt}
@@ -227,7 +437,7 @@ A PyTorch loop can match the memory advantage of FlashAttention-style tiling but
 \caption{Attention time and peak extra memory vs.\ sequence length (log scale). Source: \protect\path{results/benchmarks/attention_20261107_193238.png}.}\label{fig:att}
 \end{figure*}
 
-\subsection{Speculative decoding}
+\subsection{Speculative decoding}\label{sec:spec}
 \begin{table}[t]
 \caption{Speculative decoding on the 8 real validation prompts (untuned Qwen3-0.6B draft): medians over prompts; speed-up = plain cached time / speculative time per prompt. Source: \protect\path{results/benchmarks/speculative_20261108_113154.json}, our medians.}\label{tab:spec}
 \centering\small\setlength{\tabcolsep}{2.5pt}
@@ -254,32 +464,55 @@ The answers are short (15 to 38 tokens): plain decoding of a validation prompt t
 
 \emph{fp16 near-tie.} 84 of the 85 result rows produce the same tokens as plain decoding. The exception (256 input tokens, 128 new tokens, $k=1$) first differs at step 64 with a maximum logit gap of 0.0234 and a plain top-1/top-2 margin of exactly 0.0: the two best logits were tied in fp16 and the chosen token depends on rounding. We read this as a tie, consistent with the 84 identical rows, but did not isolate the cause.
 
+\subsection{Application}
+\begin{figure*}[t]
+\centering
+\subfloat[Evidence sync: clicked pill highlights sentence S2]{\includegraphics[width=0.48\textwidth]{figures/app_03_evidence_sync.png}}\hfill
+\subfloat[Summary tab: rule text, ``not a ground-truth label'', counts]{\includegraphics[width=0.48\textwidth]{figures/app_05_summary.png}}\\[2mm]
+\subfloat[Speculative engine: 16 criteria screened in 22 s]{\includegraphics[width=0.48\textwidth]{figures/app_09_speculative_run_16_criteria.png}}\hfill
+\subfloat[Exported HTML report (browser chrome cropped)]{\includegraphics[width=0.48\textwidth]{figures/app_06_report_export.png}}
+\caption{Screening workspace in real mode (Qwen3-4B + LoRA merged, cuda, float16). Screenshots from the author's sessions of 2026-11-10; numbers quoted in the text are read from them.}\label{fig:app1}
+\end{figure*}
+
+Fig.~\ref{fig:app1} shows the workspace. In (a) a pasted, unnumbered note was split into 8 sentences numbered $[S0]\ldots[S7]$ and 10 criteria were screened; the cards show the label badge, the cited sentence and the latency (1.9~s, 1.0~s and 1.2~s for the first three cards with the KV-cache engine, read from the screenshot), and clicking a cited pill highlights the sentence in the note. The Details drawer (kept in \path{demo/04_details_drawer.png}) shows the raw JSON answer, parse status, engine, latency 1.85 s and 15 generated tokens. In (b) the summary reports ``Undetermined: more information needed'' with 0 decisive-negative, 1 unresolved, 1 not applicable and 8 favourable criteria, together with the rule and the statement that the outcome has not been validated against expert verdicts; the one unresolved criterion is the body-mass-index inclusion, labelled NEI. In (c), screening a validation note (sigir-201427) with the speculative engine took 22 s for 16 criteria, about 1.4 s per criterion, and the first card shows the ``missing information'' flag for an NEI answer. In (d) the exported report records mode, model, device, engine, git commit, adapter path and run id, so a result can be traced to a run; reports are also saved to \path{outputs/reports/}. The four views together show that the whole path (note, criteria, model, cards, summary, export) works in real mode on the T4, which is also the path used for notes and criteria that are not in the dataset.
+
+\begin{figure*}[t]
+\centering
+\subfloat[Saved T4 benchmarks]{\includegraphics[width=0.48\textwidth]{figures/app_07_inference_lab_saved.png}}\hfill
+\subfloat[Live benchmark controls and tiled-attention visualiser]{\includegraphics[width=0.48\textwidth]{figures/app_08_live_bench_tiled.png}}\\[2mm]
+\subfloat[Live KV-cached run on the current note]{\includegraphics[width=0.48\textwidth]{figures/app_10_live_kv_run.png}}
+\caption{Inference Lab. (a) saved results for 512 input and 64 output tokens; (b) controls of the live mini-benchmark and the tiled-attention visualiser (sequence 32, block 8, query row 20); (c) a live run with the KV-cached engine. Numbers quoted in the text are read from the screenshots.}\label{fig:app2}
+\end{figure*}
+
+Fig.~\ref{fig:app2} shows the Inference Lab. The saved cards in (a) reproduce the speculative benchmark file for 512 input and 64 output tokens: plain 3.1 decode tok/s, KV-cached 12.2 tok/s and speculative speed-ups of 0.98, 1.05, 1.12 and 1.19 for $k=1,2,4,8$ (the file has 0.983, 1.046, 1.116 and 1.187), all with identical tokens; they are labelled ``measured on Colab Tesla T4'' with the date and git commit so they cannot be mistaken for live numbers. In (b) the tiled-attention visualiser shows the block grid for 32 positions with block size 8: 6 of the 16 blocks are skipped by the causal mask, and the table for query row 20 lists the running maximum, rescale factor and normaliser per key block; the footer reports a maximum difference of $2.38\times10^{-7}$ between tiled and reference attention and 5.38~ms against 37.19~ms on a CPU with a 16-dimensional head, a small illustrative size that says nothing about the T4 results of Table~\ref{tab:att}. In (c) a live KV-cached run on the current note (prompt 323 tokens, at most 24 new tokens) gave a prefill of 0.236 s and 17.13 decode tokens per second with a peak of 8,889 MiB; 17.13 tokens per second is 58 ms per token, inside the 56 to 87 ms per token that the saved cached runs show for validation prompts. The speculative panel was left empty in that screenshot, so the accepted/corrected token colouring is not shown in this report.
+
 \section{Limitations}
 \begin{itemize}
 \item \textbf{Single seed, single run.} One training run (seed 42) and one setting; no confidence intervals. \todo{any other training run outside the repo}
 \item \textbf{Small test set.} 8 patients and 206 rows; differences of a few rows are within noise, and rows of one patient are correlated.
 \item \textbf{No ``excluded'' rows in test.} The class has zero support on test and only 2 rows on validation.
 \item \textbf{Merged vs.\ 4-bit model.} Validation used the 4-bit-base model (0.748); test and benchmarks used the merged fp16 model (0.733 on validation).
-\item \textbf{CPU vs.\ T4.} All timings are from one Colab T4. The app was tested on CPU with fake or tiny models; the real 4B model on CPU and the UI in a real browser were not exercised by the assistant, and the README's CPU time per criterion (1 to 3 minutes) is a reasoned estimate. CPU numerics can differ from T4 fp16.
+\item \textbf{CPU vs.\ T4.} All timings are from one Colab T4. The app was tested on CPU with fake or tiny models; the real 4B model on CPU was not exercised by the assistant, and the README's CPU time per criterion (1 to 3 minutes) is a reasoned estimate. CPU numerics can differ from T4 fp16.
 \item \textbf{fp16 near-ties.} One KV-cache cell (step 103, logit gap 0.0293) and one speculative row (step 64, margin 0.0) differ from the reference.
 \item \textbf{Evidence weaknesses.} Exclusion evidence micro-F1 is 0.314 on test; the model over-cites, under-cites and sometimes cites the consent sentence. About 60\% of gold evidence lists are empty, which inflates metrics that include them; both views are reported.
+\item \textbf{Missing information treated as absence.} For exclusion criteria the model often answers ``not excluded'' when the note does not mention the criterion, and it did not apply a six-month window to a three-month-old event in our app test.
+\item \textbf{Candidate comparison.} Only Qwen3-4B was fine-tuned; the Llama alternative could not be measured (gated) and its figures are unverified; the draft's parameter count differs between the hub metadata and the loaded model.
 \item \textbf{Educational implementations.} Speculative decoding is batch size 1 with an untuned draft and gave no speed-up on real prompts; tiled attention is plain PyTorch, not used inside the model, and slower than fused kernels.
-\item \textbf{Educational prototype.} The preliminary outcome is a rule over criterion labels, not validated against patient-level verdicts; the system must not be used for clinical decisions.
-\item \textbf{Unrecorded app observations.} A myocardial infarction three months ago labelled ``not excluded'' for a six-month exclusion, and a never-mentioned criterion labelled ``not excluded'', were observed in the app but are not saved in the repo. \todo{attach saved report or screenshot}
+\item \textbf{Educational prototype.} The preliminary outcome is a rule over criterion labels, not validated against patient-level verdicts; the system must not be used for clinical decisions. The screenshots come from one session, in dark theme, and the myocardial infarction observation lacks a screenshot of its criterion card.
 \end{itemize}
 
 \section{Conclusion}
-QLoRA fine-tuning of Qwen3-4B on 603 patient-grouped rows improves criterion-level accuracy from 0.665 to 0.767 and macro-F1 over present classes from 0.523 to 0.726 on a held-out test split, and improves evidence F1, but the model tends to answer ``not excluded'' where annotators saw insufficient information, and evidence for exclusion criteria stays weak. The hand-written KV cache gives a 3.0 times speed-up on real prompts and up to 7.1 times at 1024 tokens; tiled attention cuts peak memory by up to 180 times at 4096 tokens but not time; speculative decoding with an untuned small draft did not help on these short answers. Next steps are a fine-tuned draft, several seeds and a larger or patient-level evaluation. All numbers come from the repository's result files; all causal explanations are hypotheses.
+QLoRA fine-tuning of Qwen3-4B on 603 patient-grouped rows improves criterion-level accuracy from 0.665 to 0.767 and macro-F1 over present classes from 0.523 to 0.726 on a held-out test split, and improves evidence F1, but the model tends to answer ``not excluded'' where annotators saw insufficient information, and evidence for exclusion criteria stays weak. The hand-written KV cache gives a 3.0 times speed-up on real prompts and up to 7.1 times at 1024 tokens; tiled attention cuts peak memory by up to 180 times at 4096 tokens but not time; speculative decoding with an untuned small draft did not help on these short answers. The browser application screened 16 criteria in 22 s on a T4 and records every run. Next steps are a fine-tuned draft, several seeds and a larger or patient-level evaluation. All numbers come from the repository's result files or are read from the screenshots; all causal explanations are hypotheses.
 
 \appendices
 \section{AI Use}
-\emph{Claude Code (coding assistant).} Used in several sessions from 2026-11-06 to 2026-11-09 (\path{docs/ai_use_log.md}) to write code and tests for: data download, inspection, grouped split and leakage checks; prompt formatter, output schema and parser; model measurement scripts; LoRA/QLoRA training and the evaluation runner; metrics, baselines and error-analysis export; the merged-model loader, KV-cache decoder and benchmark; tiled attention and its benchmark; speculative decoder and benchmark; the browser application; final test-metric flags and app fixes; and, in the last session, drafts of the notes files, the error analysis, this paper and the README.
+\emph{Claude Code (coding assistant).} Used in several sessions from 2026-11-06 to 2026-11-10 (\path{docs/ai_use_log.md}) to write code and tests for: data download, inspection, grouped split and leakage checks; prompt formatter, output schema and parser; model measurement scripts; LoRA/QLoRA training and the evaluation runner; metrics, baselines and error-analysis export; the merged-model loader, KV-cache decoder and benchmark; tiled attention and its benchmark; speculative decoder and benchmark; the browser application; final test-metric flags and app fixes; and, in the last sessions, drafts of the notes files, the error analysis, this paper (including the diagrams and algorithm boxes) and the README.
 
-\emph{What the author verified (from the AI use log).} Detected label, evidence and leakage columns against the raw data; label sums against row counts (an earlier summary omitted NEI rows); a gold round trip over all rows; a KV-cache test value by hand ($36\times8\times128\times1024\times2\times2=150{,}994{,}944$ bytes); that no weights were downloaded and the test split was not read; that gated Llama repositories are reported as skipped; hand-computed metric test values and an sklearn cross-check; decoder and cache invariants through tests on tiny random models; that app tests used fake backends. Not exercised by the assistant: GPU training and evaluation (run by the author on Colab), the real 4B model on a CPU, and the UI in a real browser. % docs/ai_use_log.md
+\emph{What the author verified (from the AI use log).} Detected label, evidence and leakage columns against the raw data; label sums against row counts (an earlier summary omitted NEI rows); a gold round trip over all rows; a KV-cache test value by hand ($36\times8\times128\times1024\times2\times2=150{,}994{,}944$ bytes); that no weights were downloaded and the test split was not read; that gated Llama repositories are reported as skipped; hand-computed metric test values and an sklearn cross-check; decoder and cache invariants through tests on tiny random models; that app tests used fake backends. Not exercised by the assistant: GPU training and evaluation (run by the author on Colab), the real 4B model on a CPU, and the UI in a browser (the author took the screenshots). % docs/ai_use_log.md
 
-\emph{Claude chat.} \todo{the author should describe what the Claude chat assistant was used for (not recorded in the repository) and what was verified}
+\emph{Claude chat (conversational assistant).} Used, according to the author, for concept explanation and for refining the prompts given to Claude Code. It produced no code or results that enter the repository. \todo{what the author verified from the chat explanations}
 
-\emph{Responsibility.} The notes, error analysis and this paper were drafted by the assistant from repository files; every claim carries a source file or a TODO, and the author must review and rewrite them. All references are marked VERIFY and were not checked.
+\emph{Responsibility.} The notes, error analysis and this paper were drafted by the assistant from repository files and the author's screenshots; every claim carries a source file or a TODO, and the author must review and rewrite them. Five references remain marked VERIFY and were not checked; the six others use BibTeX supplied by the author.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

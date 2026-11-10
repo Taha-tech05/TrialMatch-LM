@@ -283,11 +283,11 @@ roughly 1-3 minutes per criterion on a laptop CPU (a reasoned estimate, not meas
 0.6B model is much faster but low quality ("fast demo only"). Loading both models in fp32 needs ~18.5 GB RAM.
 CPU numerics (fp32/bf16) can differ slightly from the Colab fp16 results.
 Reports are saved automatically to `outputs/reports/` (git-ignored). See `docs/app_notes.md` for the workflow and
-the screenshot checklist.
+the screenshot checklist, and `demo/` for the screenshots taken in real mode on a Colab T4.
 
 ## Model Weights Download
 
-The adapter (LoRA weights) and the merged fp16 model (~8 GB) are **not committed**. Placeholder Hub id: `<YOUR_HF_USERNAME>/trialmatch-qwen3-4b-lora` (replace it with the real repository once the adapter is uploaded: TODO(verify) that it has been uploaded and whether it holds the adapter or the merged model).
+The adapter (LoRA weights) and the merged fp16 model (~8 GB) are **not committed**. Hub repository: https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora (id `Taha549/trialmatch-qwen3-4b-qlora`). Whether it holds the LoRA adapter or the merged fp16 model was not checked: TODO(verify). The snippet below assumes it is the adapter, as the name suggests.
 
 Load the adapter on the base model, build the prompt with the project's formatter, decode greedily and parse with the project parser:
 
@@ -300,7 +300,7 @@ from trialmatch.model.prompt import build_prompt
 from trialmatch.model.chat import chat_prompt_text
 from trialmatch.model.parse import parse_output
 
-HUB_ID = "<YOUR_HF_USERNAME>/trialmatch-qwen3-4b-lora"   # placeholder
+HUB_ID = "Taha549/trialmatch-qwen3-4b-qlora"   # assumed to be the adapter: TODO(verify)
 tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B")
 base = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-4B", torch_dtype=torch.float16, device_map="auto")
 model = PeftModel.from_pretrained(base, HUB_ID)
@@ -405,4 +405,4 @@ trialmatch-transformer/
 
 ## AI Use Acknowledgment
 
-This project was developed with AI assistance: Claude Code wrote and tested most of the code and drafted the notes in `docs/`, the error analysis, the paper text and this README from the repository's own files; a Claude chat assistant was also used (what it was used for is not recorded in the repo: TODO(verify)). Each session, what the author verified and what was not exercised (GPU runs, the real 4B model on CPU, the UI in a browser) is listed in `docs/ai_use_log.md` and in the appendix of `report/main.tex`. The author remains responsible for the content and must review the drafted prose, and every reference in the paper is marked VERIFY.
+This project was developed with AI assistance: Claude Code wrote and tested most of the code and drafted the notes in `docs/`, the error analysis, the paper text and this README from the repository's own files; a Claude chat assistant was also used, according to the author for concept explanation and prompt refining. Each session, what the author verified and what was not exercised (GPU runs, the real 4B model on CPU, the UI in a browser) is listed in `docs/ai_use_log.md` and in the appendix of `report/main.tex`. The author remains responsible for the content and must review the drafted prose, and every reference in the paper is marked VERIFY.

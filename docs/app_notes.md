@@ -18,19 +18,20 @@ Only validation notes with their own trial criteria are answerable (the "Example
 Anything else returns "cannot predict in demo mode".
 
 ## Screenshot checklist (for the paper; to be taken by the author)
-- [ ] Header in REAL mode (model, device, dtype) and in DEMO mode (banner)
-- [ ] Workspace after a run: note left, criteria cards right, light theme
-- [ ] Same in dark theme
-- [ ] Evidence sync: a cited pill clicked, sentence glowing cyan, citing card outlined
-- [ ] One card with the Details drawer open (raw output, latency)
-- [ ] Cards showing each badge: included/not excluded, not included/excluded, not enough information (+ missing flag), not applicable, invalid/error
-- [ ] Summary tab with outcome, rule text and not-ground-truth statement
-- [ ] Progress bar mid-run with "criterion k/N" and estimate
-- [ ] Exported HTML report (printed to PDF), incl. provenance section
-- [ ] Inference Lab: saved T4 cards + charts with the "measured on ..." label; token-equality panel
-- [ ] Live benchmark table (labelled "live, <device>, <dtype>") next to the saved block
-- [ ] Token stream with speculative accepted (indigo) / corrected (amber) tokens
-- [ ] Tiled attention grid with skipped blocks and the running max/normalizer table
+- [x] Header in REAL mode (model, device, dtype): `demo/01_header_real.png`
+- [ ] Header in DEMO mode (banner): not taken yet
+- [ ] Workspace after a run, light theme: not taken yet (dark-theme versions: `demo/03_evidence_sync.png`, `demo/09_speculative_run_16_criteria.png`)
+- [x] Same in dark theme: `demo/03_evidence_sync.png`, `demo/09_speculative_run_16_criteria.png`
+- [x] Evidence sync: a cited pill clicked, sentence glowing cyan: `demo/03_evidence_sync.png`
+- [x] One card with the Details drawer open (raw output, latency): `demo/04_details_drawer.png`
+- [ ] Cards showing each badge: only `included` (`demo/03_evidence_sync.png`) and not enough information with the missing flag (`demo/09_speculative_run_16_criteria.png`) are captured; the others are not
+- [x] Summary tab with outcome, rule text and not-ground-truth statement: `demo/05_summary.png`
+- [ ] Progress bar mid-run with "criterion k/N" and estimate: not taken (`demo/09_speculative_run_16_criteria.png` shows the finished bar, 16/16 in 22 s)
+- [x] Exported HTML report, provenance table: `demo/06_report_export.png` (browser chrome cropped; printing to PDF not shown)
+- [x] Inference Lab: saved T4 cards + charts with the "measured on ..." label; token equality (`tokens = plain`): `demo/07_inference_lab_saved.png`
+- [x] Live benchmark table (labelled "live, cuda, float16"): `demo/10_live_kv_run.png` (KV-cached engine only, not next to the saved block)
+- [ ] Token stream with speculative accepted (indigo) / corrected (amber) tokens: not captured (the speculative panel is empty in `demo/10_live_kv_run.png`)
+- [x] Tiled attention grid with skipped blocks and the running max/normalizer table: `demo/08_live_bench_tiled.png`
 
 ## Speculative engine, draft model, empty states
 - Speculative needs the merged 4B as the *active* model and the 0.6B draft loaded. Use `--load-draft` (or `real.load_draft: true`);
