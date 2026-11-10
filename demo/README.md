@@ -2,7 +2,7 @@
 
 The application was run in **real mode** (Qwen3-4B + LoRA merged, cuda, float16, draft Qwen3-0.6B base) on a Colab Tesla T4 and reached through a public tunnel. All screenshots are dark theme and were taken on 2026-11-10. `06_report_export.png` is cropped to remove the browser toolbar. Numbers quoted in `report/main.tex` from these images are read off the screenshots.
 
-**Demo video (5 to 7 minutes):** [PLACEHOLDER: video link]
+**Demo video (5 to 7 minutes):** https://youtu.be/e3O8ud70Kxo
 
 | File | What it shows |
 |---|---|

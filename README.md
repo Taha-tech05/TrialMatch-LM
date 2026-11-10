@@ -14,7 +14,9 @@ What is in the repository:
 - **Evaluation:** accuracy, per-class P/R/F1, two macro-F1 variants, evidence P/R/F1, a majority baseline and error analysis (`results/metrics/`, `results/error_analysis/`, `docs/error_analysis.md`).
 - **Inference internals written by hand and tested:** a KV-cache decoder, tiled online-softmax attention and greedy speculative decoding, with T4 benchmarks (`results/benchmarks/`).
 - **Browser app:** screening workspace and Inference Lab (see "Running the App").
-- **Paper draft:** `report/main.tex` (IEEEtran).
+- **Paper:** `report/main.tex` (IEEEtran, compiled to `report/main.pdf`).
+- **Submission summary:** `SUBMISSION.md` / `SUBMISSION.pdf` (links, instructions, file map).
+- **Demo video (5 to 7 minutes):** https://youtu.be/e3O8ud70Kxo
 
 Headline numbers (test split, 206 rows, 8 patients, evaluated once with the merged fp16 model; `results/metrics/test_comparison.md`): accuracy 0.767 and macro-F1 over present classes 0.726 for the fine-tuned model, against 0.665 / 0.523 for the base model and 0.626 / 0.272 for the majority baseline. The test split has no gold `excluded` rows, so macro-F1 over the full label set (0.605) is also reported. Speculative decoding with an untuned Qwen3-0.6B draft gave **no** speed-up on real validation prompts (`results/benchmarks/speculative_20261108_113154.json`); details in `docs/speculative_notes.md`.
 
@@ -199,7 +201,7 @@ python scripts/bench_attention.py                            # GPU: fp16, seq 12
 Output: `results/benchmarks/attention_<timestamp>.{json,csv,png}` (under `$TRIALMATCH_OUT` if set): time and peak memory per
 implementation and sequence length, max/mean absolute error against an fp32 reference, OOM / unavailable backends recorded
 instead of crashing, and the environment (GPU, versions, dtype, git commit). Exit code 1 if tiled/reference differ from the fp32
-baseline by more than the tolerance. Notes to fill in: `docs/attention_notes.md`.
+baseline by more than the tolerance. Notes: `docs/attention_notes.md`.
 
 ## One-click Colab run
 
@@ -226,7 +228,7 @@ correction/bonus, both KV caches cropped back), `cache_sync.py` (crop with the t
 the plain cached greedy decoder (fp32 tests; fp16 near-ties are reported by the benchmark, not hidden).
 Target = merged fp16 Qwen3-4B; draft = untuned `Qwen/Qwen3-0.6B` by default. Change it in `configs/inference.yaml`
 (`speculative_benchmark.draft_model / draft_dir / draft_adapter`) or with `--draft-model / --draft-dir / --draft-adapter`
-(a fine-tuned draft is not trained in this step).
+(a fine-tuned draft was not trained in this project).
 
 CPU tests (tiny random Qwen3 target + smaller draft, fp32, no downloads):
 `python -m pytest tests/test_speculative_equivalence.py tests/test_speculative_bench.py`.
@@ -247,7 +249,7 @@ Results: `results/benchmarks/speculative_<timestamp>.{json,csv,png}` (under `$TR
 configuration. Per row: acceptance rate, mean accepted per iteration, wall latency, tokens/s, speedup vs plain cached decoding,
 draft vs verify time, peak memory (both models loaded), token-equality flag (a mismatch records the first differing step and
 the logit gap), plus the environment (GPU, versions, dtype, git commit). Exit code 1 if any output differs from plain greedy.
-Test split is never read. Notes to fill in: `docs/speculative_notes.md`.
+Test split is never read. Notes: `docs/speculative_notes.md`.
 
 ## Running the App
 
@@ -286,6 +288,15 @@ Reports are saved automatically to `outputs/reports/` (git-ignored). See `docs/a
 the screenshot checklist, and `demo/` for the screenshots taken in real mode on a Colab T4.
 
 ## Model Weights Download
+
+**Quick start with the Hub adapter (no local merged model needed):** the app can load the base model and this adapter from the Hub on first run:
+
+```bash
+TRIALMATCH_ADAPTER=Taha549/trialmatch-qwen3-4b-qlora python scripts/launch_app.py --mode real   # Linux/macOS/Colab
+# Windows PowerShell:  $env:TRIALMATCH_ADAPTER="Taha549/trialmatch-qwen3-4b-qlora"; python scripts/launch_app.py --mode real
+```
+
+(The model source order is documented in `configs/app.yaml`: `--merged-dir`, `TRIALMATCH_MERGED_DIR`, `real.merged_dir`, then base + adapter from `TRIALMATCH_ADAPTER`, `real.adapter` or `real.adapter_hub_id`.) A GPU is recommended; on a CPU allow roughly 1 to 3 minutes per criterion (a reasoned estimate, not measured). This command path has not been run end to end by the assistant.
 
 The adapter (LoRA weights) and the merged fp16 model (~8 GB) are **not committed**. Hub repository: https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora (id `Taha549/trialmatch-qwen3-4b-qlora`). It holds the LoRA adapter, not the merged fp16 model.
 

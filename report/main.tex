@@ -1,6 +1,5 @@
 % DRAFT written by Claude Code for the author to review. Every number comes from a file in results/ or configs/ (named in a % comment),
 % or is read from a screenshot in report/figures/ (stated in the text).
-% Red [PLACEHOLDER: ...] marks the one remaining author field (video link).
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
 \usepackage{cite}
@@ -20,7 +19,6 @@
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
-\newcommand{\placeholder}[1]{\textcolor{red}{[PLACEHOLDER: #1]}}
 \newcommand{\code}[1]{\texttt{#1}}
 \emergencystretch=3em
 \sloppy
@@ -30,10 +28,12 @@
 \title{TrialMatch Transformer: Fine-Tuning, KV-Cache, Tiled Attention and Speculative Decoding for Clinical-Trial Criterion Screening}
 
 \author{\IEEEauthorblockN{Muhammad Taha Irfan}
-\IEEEauthorblockA{Email: tahairfa549@gmail.com\\
+\IEEEauthorblockA{Department of Computer Science (BSCS), FAST NUCES\\
+Islamabad, Pakistan\\
+tahairfan549@gmail.com\\[1mm]
 Code: \url{https://github.com/Taha-tech05/TrialMatch-LM}\\
 Adapter: \url{https://huggingface.co/Taha549/trialmatch-qwen3-4b-qlora}\\
-Video: \placeholder{video link}}
+Demo video: \url{https://youtu.be/e3O8ud70Kxo}}
 }
 
 \maketitle
@@ -513,9 +513,9 @@ QLoRA fine-tuning of Qwen3-4B on 603 patient-grouped rows improves criterion-lev
 
 \emph{What the author verified (from the AI use log).} Detected label, evidence and leakage columns against the raw data; label sums against row counts (an earlier summary omitted NEI rows); a gold round trip over all rows; a KV-cache test value by hand ($36\times8\times128\times1024\times2\times2=150{,}994{,}944$ bytes); that no weights were downloaded and the test split was not read; that gated Llama repositories are reported as skipped; hand-computed metric test values and an sklearn cross-check; decoder and cache invariants through tests on tiny random models; that app tests used fake backends. Not exercised by the assistant: GPU training and evaluation (run by the author on Colab), the real 4B model on a CPU, and the UI in a browser (the author took the screenshots). % docs/ai_use_log.md
 
-\emph{Claude chat (conversational assistant).} Used, according to the author, for concept explanation and for refining the prompts given to Claude Code. It produced no code or results that enter the repository.
+\emph{Claude chat (conversational assistant).} Used, according to the author, for concept explanation and for refining the prompts given to Claude Code.
 
-\emph{Responsibility.} The notes, error analysis and this paper were drafted by the assistant from repository files and the author's screenshots; every claim carries a source file or a TODO, and the author must review and rewrite them. Six references use BibTeX supplied by the author; the entries for the Qwen3 report, LoRA, Attention Is All You Need, the online softmax and speculative decoding by Leviathan et al. were completed by the assistant from memory and should be checked.
+\emph{Responsibility.} The notes, error analysis and this paper were drafted by the assistant from repository files and the author's screenshots; every number carries its source file (in the comments of this file) and every causal explanation is marked as a hypothesis; the author must review and rewrite the prose. Six references use BibTeX supplied by the author; the entries for the Qwen3 report, LoRA, Attention Is All You Need, the online softmax and speculative decoding by Leviathan et al. were completed by the assistant from memory and should be checked.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
